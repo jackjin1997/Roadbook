@@ -1,0 +1,50 @@
+{
+  "name": "roadbook",
+  "private": true,
+  "version": "0.1.0",
+  "description": "输入一份 JD，Ariadne 为你生成专属的通关路书",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:server": "tsx watch src/ariadne/server.ts",
+    "build": "tsc --project tsconfig.json --noEmit && tsc --project tsconfig.ariadne.json --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "ariadne": "tsx src/ariadne/cli.ts",
+    "ariadne:server": "tsx src/ariadne/server.ts"
+  },
+  "dependencies": {
+    "@langchain/anthropic": "^1.3.22",
+    "@langchain/core": "^1.1.31",
+    "@langchain/google-genai": "^2.1.24",
+    "@langchain/langgraph": "^1.2.0",
+    "@langchain/openai": "^1.2.12",
+    "@langchain/tavily": "^1.2.0",
+    "@tauri-apps/api": "^2.10.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "langchain": "^1.2.30",
+    "langsmith": "^0.5.7",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.1",
+    "@tauri-apps/cli": "^2.10.1",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.3.5",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.4",
+    "tailwindcss": "^4.2.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
+  }
+}
