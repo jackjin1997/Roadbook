@@ -36,6 +36,7 @@ export interface ResearchResult {
 export interface RoadbookState {
   input: string;
   inputType: InputType;
+  language: string;
   title: string;
   skillTree: SkillNode[];
   researchResults: ResearchResult[];

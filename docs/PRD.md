@@ -18,12 +18,15 @@
 
 Roadbook 是一个**主动发散与构建**的 AI 学习路径生成器。区别于被动问答的 RAG 系统，它以一段非结构化文本（JD、技术文章、简历片段）为锚点，向外扩张调研，最终收敛为一份**结构化、教程导向**的学习路书。
 
+每份路书以**工作区（Workspace）**为载体持久化存储，用户可在首页的卡片画廊中管理所有工作区，类似 NotebookLM 的使用范式——每个工作区是一等公民实体，有独立标题、语言、生成时间，可随时打开查看或重新生成。
+
 ### 1.3 命名体系
 
 | 角色 | 名称 | 说明 |
 |------|------|------|
 | 核心引擎 | **Ariadne** | 希腊神话中指引走出迷宫的线团，代表后端 Agent 编排层 |
 | 交付产物 | **路书 (Roadbook)** | 面向用户的产品名，契合"通关指南"工具属性 |
+| 管理单元 | **工作区 (Workspace)** | 每份路书的持久化容器，包含输入源、生成结果、语言设置 |
 
 ---
 
@@ -59,6 +62,28 @@ npx ariadne "Node.js 高级后端工程师 JD" --output roadbook.md
 ```
 Ariadne 返回结构化 JSON 或 Markdown，agent 可将其作为上下文继续处理，无需打开 GUI。
 
+### 核心数据模型
+
+```
+Workspace（域/目标，如"AI Agent 面试备战"）
+├── Source（输入源，1:1 对应一份路书）
+│   ├── type: text | file | url | video
+│   ├── reference: 原始引用（链接/文件名/原文）
+│   └── snapshot: 摄入时提取的文本快照（ingested_at）
+│       └── Roadmap（一等公民，基于快照生成）
+│           ├── skillTree: 技能树
+│           ├── markdown: 路书正文
+│           └── generated_at
+├── Source → Roadmap
+└── [可选] Merged Roadmap（从选中 Roadmap 合并派生）
+```
+
+**两个核心动作**（无需版本系统）：
+- **重新摄入**（Source 层）：更新内容快照，适用于 URL 内容变更、重新上传文件等
+- **重新生成**（Roadmap 层）：基于当前快照重跑 Ariadne，覆盖或保留旧路书
+
+所有 Source 类型在摄入后统一变为文本快照，Roadmap 只感知文本，不感知 Source 类型。
+
 ### 核心数据流
 
 ```mermaid
@@ -75,37 +100,49 @@ flowchart LR
 
 ## 4. 功能需求
 
-### MVP1（v0.1）- 核心路径打通
+### MVP1（v0.1）- 核心路径打通 ✅
 
 - **F1 - 文本输入**：支持粘贴 JD / 文章 / 自由文本，提供简单的输入界面
 - **F2 - 技能树提取**：LLM 从输入文本中提取结构化技能树（Skill -> Sub-skill -> Related Concepts）
 - **F3 - 联网调研**：对每个技能节点通过 Tavily 搜索相关教程和资源
-- **F4 - 路书生成**：输出一份 Markdown 文档，包含：
-  - Mermaid mindmap 脑图（技能树可视化）
-  - 每个节点的简要说明 + 推荐学习资源链接
-  - 学习优先级建议
+- **F4 - 路书生成**：输出一份 Markdown 文档，包含 Mermaid 脑图、资源链接、优先级建议
 - **F5 - 多模型支持**：支持 OpenAI / Anthropic / Gemini 模型切换
-- **F6 - 本地应用**：Tauri 桌面端，数据本地存储
+- **F6 - 本地应用**：Express + React，数据本地存储
+- **F12 - 多语言输出**：用户可配置路书语言，UI 同步切换
 
-### MVP2（v0.2）- 体验增强
+### MVP2（v0.2）- 工作区范式重构
 
-- **F7 - Obsidian 双链输出**：生成的路书支持 Obsidian `[[双链]]` 格式，可直接导入 Obsidian vault
-- **F8 - 流式输出**：Agent 工作过程中实时展示进度和中间结果
-- **F9 - 历史管理**：本地保存历史路书，支持查看和对比
-- **F10 - 歧义消解交互**：当检测到多义概念时，交互式让用户选择上下文方向
-- **F11 - CLI 一等公民支持**：面向 AI agent 和轻量开发者的命令行接口
-  - `--format json`：输出结构化 JSON，供 agent 程序消费
-  - `--format markdown`：输出纯 Markdown，适合管道和文件保存
-  - stdin 支持：`cat jd.txt | npx ariadne`
-  - 语义化 exit code：0 成功 / 1 输入错误 / 2 生成失败
-  - 无副作用模式（`--dry-run`）：仅解析技能树，不执行联网调研
+核心变化：引入 Workspace > Source > Roadmap 三层模型，Roadmap 成为一等公民。
 
-### Future（v0.3+）
+- **F13 - 工作区首页**：类 NotebookLM 的卡片画廊
+  - 每张卡片：工作区标题、Source 数量、最近更新时间
+  - 「+ New」入口突出显示
+  - 按最近访问排序
+- **F14 - 工作区视图**：独立页面，三栏布局
+  - 左栏：Source 列表（支持添加多个 Source，类型：text / file / url）
+  - 中栏：选中 Source 对应的 Roadmap（Markdown 渲染）
+  - 右栏（未来）：Merged Roadmap
+- **F15 - Source 管理**
+  - 添加 Source（文本输入为 MVP 优先）
+  - 重新摄入（更新快照）→ 可触发重新生成
+  - 删除 Source（级联删除对应 Roadmap）
+- **F16 - Roadmap 管理**
+  - 重新生成（基于当前快照重跑 Ariadne）
+  - 查看生成时间（隐式版本信息）
+- **F8 - 流式输出**：实时展示生成进度
 
+### MVP3（v0.3）- 深度能力
+
+- **F17 - Merged Roadmap**：选择工作区内多个 Roadmap 合并，LLM 做语义去重 + 优先级聚合
+- **F7 - Obsidian 双链输出**：生成结果支持 `[[双链]]` 格式
+- **F11 - CLI 完整支持**：`--format json`、stdin、语义化 exit code
+- **F10 - 歧义消解交互**：多义概念时交互式选择上下文
+
+### Future（v0.4+）
+
+- URL / 文件 / 视频 Source 类型支持
 - Obsidian 插件形态
-- 知识图谱持久化与增量更新
-- 多路书关联与合并
-- 社区分享路书模板
+- 社区分享工作区模板
 
 ---
 
@@ -208,29 +245,28 @@ interface SkillNode {
 
 ## 6. 里程碑规划
 
-### M0 - 基础骨架（1-2 周）
-- 初始化 Tauri + React 项目
-- LangGraph.js 基础工作流骨架
-- 单模型（OpenAI）跑通 "输入 -> 提取 -> 输出" 最简路径
-- LangSmith tracing 接入
+### M0 - 基础骨架 ✅
+- 初始化项目，LangGraph.js 工作流骨架，LangSmith tracing 接入
 
-### M1 - MVP1 功能闭环（2-3 周）
-- 完成完整的 3 阶段工作流（提取 -> 调研 -> 聚合）
-- Tavily 搜索集成
-- Mermaid 脑图生成
-- 多模型切换
-- Tauri 桌面端基础 UI（输入框 + Markdown 渲染 + 设置页）
+### M1 - MVP1 功能闭环 ✅
+- 完整 3 阶段工作流、Tavily 搜索、Mermaid 脑图、多模型切换、多语言输出
+- 基础 UI（输入 + Markdown 渲染 + 历史侧边栏）
+- CLI 支持，后端历史持久化
 
-### M2 - 质量打磨（1-2 周）
-- LangSmith evaluation pipeline 建立
-- Prompt 调优（基于 evaluation 数据驱动）
-- UI/UX 打磨
-- 错误处理与边界情况
+### M2 - 工作区范式重构（进行中）
+- 工作区首页：卡片画廊 + 新建入口（参考 NotebookLM 布局）
+- 工作区独立页面（路由切换）
+- 工作区数据模型升级（backend history → workspace store）
+- 工作区重命名 / 删除管理
 
-### M3 - MVP2 体验增强
-- Obsidian 双链输出
+### M3 - 质量打磨
+- LangSmith evaluation pipeline
 - 流式输出
-- 历史管理
+- Prompt 调优
+
+### M4 - 深度能力
+- Obsidian 双链输出
+- 工作区内增量调研
 
 ---
 

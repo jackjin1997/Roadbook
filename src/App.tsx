@@ -13,11 +13,95 @@ interface HistoryItem {
   createdAt: number;
 }
 
-async function callAriadne(input: string): Promise<{ markdown: string; id: string }> {
+const LANGUAGES: { value: string; label: string }[] = [
+  { value: "English", label: "English" },
+  { value: "Chinese (Simplified)", label: "中文" },
+  { value: "Japanese", label: "日本語" },
+  { value: "Spanish", label: "Español" },
+  { value: "French", label: "Français" },
+];
+
+interface UIStrings {
+  inputPanelTitle: string;
+  placeholder: string;
+  generate: string;
+  generating: string;
+  history: string;
+  noHistory: string;
+  idleTitle: string;
+  idleSubtitle: string;
+  generatingMsg: string;
+  errorTitle: string;
+}
+
+const UI: Record<string, UIStrings> = {
+  "English": {
+    inputPanelTitle: "Input JD / Article / Concept",
+    placeholder: "Paste a job description, a technical article, or a concept you want to understand...",
+    generate: "Generate Roadbook",
+    generating: "Generating...",
+    history: "History",
+    noHistory: "No records yet",
+    idleTitle: "Enter content to generate your roadbook",
+    idleSubtitle: "Supports JD parsing, resume review, concept mapping",
+    generatingMsg: "Ariadne is weaving your roadbook...",
+    errorTitle: "Generation failed",
+  },
+  "Chinese (Simplified)": {
+    inputPanelTitle: "输入 JD / 文章 / 技术概念",
+    placeholder: "粘贴一份 JD、一段技术文章、或输入一个你想深入了解的技术概念...",
+    generate: "生成路书",
+    generating: "生成中...",
+    history: "历史记录",
+    noHistory: "暂无记录",
+    idleTitle: "输入内容，生成你的专属路书",
+    idleSubtitle: "支持 JD 解析、简历复习、概念扫盲",
+    generatingMsg: "Ariadne 正在为你编织路书...",
+    errorTitle: "生成失败",
+  },
+  "Japanese": {
+    inputPanelTitle: "JD / 記事 / 概念を入力",
+    placeholder: "求人票、技術記事、または深く理解したい概念を貼り付けてください...",
+    generate: "ロードブックを生成",
+    generating: "生成中...",
+    history: "履歴",
+    noHistory: "記録なし",
+    idleTitle: "コンテンツを入力してロードブックを生成",
+    idleSubtitle: "JD 解析・履歴書レビュー・概念マッピングに対応",
+    generatingMsg: "Ariadne があなたのロードブックを編んでいます...",
+    errorTitle: "生成失敗",
+  },
+  "Spanish": {
+    inputPanelTitle: "Ingresa JD / Artículo / Concepto",
+    placeholder: "Pega una descripción de trabajo, artículo técnico, o concepto que quieras entender...",
+    generate: "Generar Roadbook",
+    generating: "Generando...",
+    history: "Historial",
+    noHistory: "Sin registros",
+    idleTitle: "Ingresa contenido para generar tu roadbook",
+    idleSubtitle: "Soporta análisis de JD, revisión de CV, mapeo de conceptos",
+    generatingMsg: "Ariadne está tejiendo tu roadbook...",
+    errorTitle: "Error al generar",
+  },
+  "French": {
+    inputPanelTitle: "Entrer JD / Article / Concept",
+    placeholder: "Collez une fiche de poste, un article technique, ou un concept à explorer...",
+    generate: "Générer le Roadbook",
+    generating: "Génération...",
+    history: "Historique",
+    noHistory: "Aucun enregistrement",
+    idleTitle: "Entrez du contenu pour générer votre roadbook",
+    idleSubtitle: "Analyse de JD, révision de CV, cartographie de concepts",
+    generatingMsg: "Ariadne tisse votre roadbook...",
+    errorTitle: "Échec de génération",
+  },
+};
+
+async function callAriadne(input: string, language: string): Promise<{ markdown: string; id: string }> {
   const res = await fetch(`${API_URL}/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ input }),
+    body: JSON.stringify({ input, language }),
   });
 
   if (!res.ok) {
@@ -50,6 +134,8 @@ function App() {
   const [error, setError] = useState("");
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [language, setLanguage] = useState("English");
+  const t = UI[language] ?? UI["English"];
 
   useEffect(() => {
     fetchHistory().then(setHistory);
@@ -63,7 +149,7 @@ function App() {
     setActiveId(null);
 
     try {
-      const { markdown, id } = await callAriadne(input);
+      const { markdown, id } = await callAriadne(input, language);
       setResult(markdown);
       setActiveId(id);
       setStatus("done");
@@ -102,21 +188,31 @@ function App() {
             路书
           </span>
         </h1>
-        <span className="ml-auto text-xs text-[var(--color-text-muted)]">
-          Powered by Ariadne
-        </span>
+        <div className="ml-auto flex items-center gap-3">
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            disabled={status === "running"}
+            className="text-xs bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] rounded px-2 py-1 focus:outline-none cursor-pointer"
+          >
+            {LANGUAGES.map((l) => (
+              <option key={l.value} value={l.value}>{l.label}</option>
+            ))}
+          </select>
+          <span className="text-xs text-[var(--color-text-muted)]">Powered by Ariadne</span>
+        </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
         {/* History Sidebar */}
         <div className="w-[200px] flex flex-col border-r border-[var(--color-border)] shrink-0">
           <div className="px-3 py-3 text-xs font-medium text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
-            历史记录
+            {t.history}
           </div>
           <div className="flex-1 overflow-y-auto">
             {history.length === 0 ? (
               <p className="px-3 py-4 text-xs text-[var(--color-text-muted)]/50 text-center">
-                暂无记录
+                {t.noHistory}
               </p>
             ) : (
               history.map((item) => (
@@ -151,11 +247,11 @@ function App() {
         {/* Input Panel */}
         <div className="w-[380px] flex flex-col border-r border-[var(--color-border)] shrink-0">
           <div className="px-4 py-3 text-sm font-medium text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
-            输入 JD / 文章 / 技术概念
+            {t.inputPanelTitle}
           </div>
           <textarea
             className="flex-1 resize-none bg-transparent p-4 text-sm leading-relaxed focus:outline-none placeholder:text-[var(--color-text-muted)]/50"
-            placeholder="粘贴一份 JD、一段技术文章、或输入一个你想深入了解的技术概念..."
+            placeholder={t.placeholder}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={status === "running"}
@@ -168,7 +264,7 @@ function App() {
                 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white
                 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {status === "running" ? "生成中..." : "生成路书"}
+              {status === "running" ? t.generating : t.generate}
             </button>
           </div>
         </div>
@@ -178,10 +274,8 @@ function App() {
           {status === "idle" && (
             <div className="flex items-center justify-center h-full text-[var(--color-text-muted)]">
               <div className="text-center space-y-2">
-                <p className="text-lg">输入内容，生成你的专属路书</p>
-                <p className="text-sm opacity-60">
-                  支持 JD 解析、简历复习、概念扫盲
-                </p>
+                <p className="text-lg">{t.idleTitle}</p>
+                <p className="text-sm opacity-60">{t.idleSubtitle}</p>
               </div>
             </div>
           )}
@@ -190,14 +284,14 @@ function App() {
             <div className="flex items-center justify-center h-full text-[var(--color-text-muted)]">
               <div className="text-center space-y-3">
                 <div className="inline-block w-6 h-6 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin" />
-                <p>Ariadne 正在为你编织路书...</p>
+                <p>{t.generatingMsg}</p>
               </div>
             </div>
           )}
 
           {status === "error" && (
             <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-              <p className="font-medium mb-1">生成失败</p>
+              <p className="font-medium mb-1">{t.errorTitle}</p>
               <p>{error}</p>
             </div>
           )}

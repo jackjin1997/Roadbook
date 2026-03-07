@@ -54,10 +54,11 @@ app.delete("/history/:id", (req, res) => {
 });
 
 app.post("/generate", async (req, res) => {
-  const { input, provider, model } = req.body as {
+  const { input, provider, model, language } = req.body as {
     input?: string;
     provider?: ModelProvider;
     model?: string;
+    language?: string;
   };
 
   if (!input?.trim()) {
@@ -70,7 +71,7 @@ app.post("/generate", async (req, res) => {
   }
 
   try {
-    const markdown = await generateRoadbook(input);
+    const markdown = await generateRoadbook(input, language ?? "English");
 
     const item: HistoryItem = {
       id: Date.now().toString(),

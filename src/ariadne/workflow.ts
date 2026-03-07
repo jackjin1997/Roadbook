@@ -11,6 +11,10 @@ const RoadbookAnnotation = Annotation.Root({
     reducer: (_prev, next) => next,
     default: () => "concept" as InputType,
   }),
+  language: Annotation<string>({
+    reducer: (_prev, next) => next,
+    default: () => "English",
+  }),
   title: Annotation<string>({
     reducer: (_prev, next) => next,
     default: () => "",
@@ -56,7 +60,7 @@ function buildWorkflow() {
 
 const graph = buildWorkflow();
 
-export async function generateRoadbook(input: string): Promise<string> {
-  const result = await graph.invoke({ input });
+export async function generateRoadbook(input: string, language = "English"): Promise<string> {
+  const result = await graph.invoke({ input, language });
   return result.roadbookMarkdown;
 }
