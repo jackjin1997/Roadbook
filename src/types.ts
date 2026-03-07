@@ -6,7 +6,7 @@ export interface Roadmap {
 
 export interface Source {
   id: string;
-  type: "text";
+  type: "text" | "url" | "file";
   reference: string;
   snapshot: string;
   ingestedAt: number;

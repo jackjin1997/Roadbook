@@ -6,6 +6,8 @@ import {
   getWorkspace,
   renameWorkspace,
   addSource,
+  addUrlSource,
+  addFileSource,
   deleteSource,
   generateRoadmap,
 } from "../api";
@@ -57,14 +59,30 @@ export default function WorkspacePage() {
     setEditingTitle(false);
   };
 
+  const isUrl = (s: string) => /^https?:\/\/.+/.test(s.trim());
+
   const handleAddSource = async () => {
     if (!workspace || !sourceDraft.trim()) return;
     setAddingSource(true);
     try {
-      const source = await addSource(workspace.id, sourceDraft.trim(), language);
+      const fn = isUrl(sourceDraft) ? addUrlSource : addSource;
+      const source = await fn(workspace.id, sourceDraft.trim(), language);
       setWorkspace((w) => w ? { ...w, sources: [...w.sources, source] } : w);
       setSelectedSourceId(source.id);
       setSourceDraft("");
+      setShowAddSource(false);
+    } finally {
+      setAddingSource(false);
+    }
+  };
+
+  const handleAddFile = async (file: File) => {
+    if (!workspace) return;
+    setAddingSource(true);
+    try {
+      const source = await addFileSource(workspace.id, file, language);
+      setWorkspace((w) => w ? { ...w, sources: [...w.sources, source] } : w);
+      setSelectedSourceId(source.id);
       setShowAddSource(false);
     } finally {
       setAddingSource(false);
@@ -211,19 +229,27 @@ export default function WorkspacePage() {
               className="p-3 border-t"
               style={{ borderColor: "var(--color-border)" }}
             >
-              <textarea
-                autoFocus
-                className="w-full text-xs rounded p-2 resize-none focus:outline-none"
-                style={{
-                  background: "var(--color-bg)",
-                  border: "1px solid var(--color-border)",
-                  color: "var(--color-text)",
-                  height: 100,
-                }}
-                placeholder={i.pasteHint}
-                value={sourceDraft}
-                onChange={(e) => setSourceDraft(e.target.value)}
-              />
+              <div className="relative">
+                <textarea
+                  autoFocus
+                  className="w-full text-xs rounded p-2 resize-none focus:outline-none"
+                  style={{
+                    background: "var(--color-bg)",
+                    border: `1px solid ${isUrl(sourceDraft) ? "var(--color-accent)" : "var(--color-border)"}`,
+                    color: "var(--color-text)",
+                    height: 90,
+                  }}
+                  placeholder={i.pasteHint}
+                  value={sourceDraft}
+                  onChange={(e) => setSourceDraft(e.target.value)}
+                />
+                {isUrl(sourceDraft) && (
+                  <span className="absolute top-1.5 right-2 text-[9px] font-medium px-1.5 py-0.5 rounded"
+                    style={{ background: "var(--color-accent)", color: "#fff" }}>
+                    URL
+                  </span>
+                )}
+              </div>
               <div className="flex gap-2 mt-2">
                 <button
                   onClick={handleAddSource}
@@ -232,6 +258,20 @@ export default function WorkspacePage() {
                 >
                   {addingSource ? i.adding : i.addSource.replace("+ ", "")}
                 </button>
+                {/* File upload */}
+                <label
+                  className="text-xs py-1.5 px-2.5 rounded cursor-pointer transition-colors flex items-center"
+                  style={{ background: "var(--color-surface-hover)", color: "var(--color-text-muted)" }}
+                  title="Upload file (PDF, DOCX, TXT, image)"
+                >
+                  ↑
+                  <input
+                    type="file"
+                    accept=".pdf,.docx,.txt,.md,image/*"
+                    className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAddFile(f); e.target.value = ""; }}
+                  />
+                </label>
                 <button
                   onClick={() => { setShowAddSource(false); setSourceDraft(""); }}
                   className="text-xs py-1.5 px-3 rounded transition-colors"
@@ -309,12 +349,25 @@ function SourceItem({
       }}
     >
       <div className="flex items-start justify-between gap-1">
-        <p
-          className="text-xs leading-relaxed line-clamp-2 flex-1"
-          style={{ color: "var(--color-text)" }}
-        >
-          {source.reference.slice(0, 80)}{source.reference.length > 80 ? "..." : ""}
-        </p>
+        {source.type === "url" ? (
+          <a
+            href={source.reference}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="text-xs leading-relaxed line-clamp-2 flex-1 hover:underline"
+            style={{ color: "var(--color-accent)" }}
+          >
+            {source.reference.replace(/^https?:\/\//, "").slice(0, 60)}
+          </a>
+        ) : (
+          <p
+            className="text-xs leading-relaxed line-clamp-2 flex-1"
+            style={{ color: "var(--color-text)" }}
+          >
+            {source.type === "file" ? "↑ " : ""}{source.reference.slice(0, 80)}{source.reference.length > 80 ? "..." : ""}
+          </p>
+        )}
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
           className="opacity-0 group-hover:opacity-100 text-xs shrink-0 mt-0.5 transition-opacity"

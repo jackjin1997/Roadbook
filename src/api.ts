@@ -37,6 +37,27 @@ export const addSource = (workspaceId: string, text: string, language: string) =
     body: JSON.stringify({ text, language }),
   });
 
+export const addUrlSource = (workspaceId: string, url: string, language: string) =>
+  req<Source>(`/workspaces/${workspaceId}/sources/url`, {
+    method: "POST",
+    body: JSON.stringify({ url, language }),
+  });
+
+export const addFileSource = async (workspaceId: string, file: File, language: string): Promise<Source> => {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("language", language);
+  const res = await fetch(`${API}/workspaces/${workspaceId}/sources/file`, {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+};
+
 export const deleteSource = (workspaceId: string, sourceId: string) =>
   req<{ ok: boolean }>(`/workspaces/${workspaceId}/sources/${sourceId}`, { method: "DELETE" });
 

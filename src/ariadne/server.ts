@@ -3,6 +3,15 @@ import express from "express";
 import cors from "cors";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
+import multer from "multer";
+import { Readability } from "@mozilla/readability";
+import { JSDOM } from "jsdom";
+import { ChatAnthropic } from "@langchain/anthropic";
+import { HumanMessage } from "@langchain/core/messages";
+import { createRequire } from "module";
+import mammoth from "mammoth";
+const require = createRequire(import.meta.url);
+const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
 import { generateRoadbook } from "./workflow.js";
 import { setModelConfig } from "./config.js";
 import type { ModelProvider } from "./config.js";
@@ -18,7 +27,7 @@ export interface Roadmap {
 
 export interface Source {
   id: string;
-  type: "text";
+  type: "text" | "url" | "file";
   reference: string;
   snapshot: string;
   ingestedAt: number;
@@ -72,6 +81,62 @@ function uid() {
 }
 
 // ── App ──────────────────────────────────────────────────────────────────────
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+async function fetchUrlSnapshot(url: string): Promise<string> {
+  const res = await fetch(url, {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; Ariadne/1.0)" },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
+  const html = await res.text();
+  const dom = new JSDOM(html, { url });
+  const article = new Readability(dom.window.document).parse();
+  if (!article?.textContent) throw new Error("Could not extract readable content from URL");
+  return article.textContent.replace(/\s+/g, " ").trim();
+}
+
+async function extractFileText(buffer: Buffer, mimeType: string, filename: string): Promise<string> {
+  // Plain text
+  if (mimeType === "text/plain" || filename.endsWith(".txt") || filename.endsWith(".md")) {
+    return buffer.toString("utf-8").trim();
+  }
+  // PDF
+  if (mimeType === "application/pdf" || filename.endsWith(".pdf")) {
+    const data = await pdfParse(buffer);
+    if (!data.text.trim()) throw new Error("Could not extract text from PDF");
+    return data.text.trim();
+  }
+  // DOCX
+  if (
+    mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    filename.endsWith(".docx")
+  ) {
+    const result = await mammoth.extractRawText({ buffer });
+    if (!result.value.trim()) throw new Error("Could not extract text from DOCX");
+    return result.value.trim();
+  }
+  // Image → Claude OCR
+  if (mimeType.startsWith("image/")) {
+    const model = new ChatAnthropic({ model: "claude-haiku-4-5-20251001", maxTokens: 4096 });
+    const b64 = buffer.toString("base64");
+    const res = await model.invoke([
+      new HumanMessage({
+        content: [
+          { type: "image_url", image_url: { url: `data:${mimeType};base64,${b64}` } },
+          { type: "text", text: "Extract all text from this image verbatim. Return only the extracted text, no commentary." },
+        ],
+      }),
+    ]);
+    return (res.content as string).trim();
+  }
+  throw new Error(`Unsupported file type: ${mimeType}`);
+}
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+// ── App ───────────────────────────────────────────────────────────────────────
 
 const app = express();
 const PORT = Number(process.env.ARIADNE_PORT) || 3001;
@@ -158,6 +223,56 @@ app.post("/workspaces/:id/sources", (req, res) => {
   workspace.sources.push(source);
   updateWorkspace(workspace);
   res.status(201).json(source);
+});
+
+// Add URL source
+app.post("/workspaces/:id/sources/url", async (req, res) => {
+  const workspace = findWorkspace(req.params.id);
+  if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
+  const { url, language } = req.body as { url?: string; language?: string };
+  if (!url?.trim()) { res.status(400).json({ error: "url is required" }); return; }
+  try {
+    const snapshot = await fetchUrlSnapshot(url.trim());
+    const source: Source = {
+      id: uid(), type: "url",
+      reference: url.trim(),
+      snapshot,
+      ingestedAt: Date.now(),
+      language: language ?? "English",
+      roadmap: null,
+    };
+    workspace.sources.push(source);
+    updateWorkspace(workspace);
+    res.status(201).json(source);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(422).json({ error: message });
+  }
+});
+
+// Add file source (PDF / DOCX / TXT / image)
+app.post("/workspaces/:id/sources/file", upload.single("file"), async (req, res) => {
+  const workspace = findWorkspace(req.params.id as string);
+  if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
+  if (!req.file) { res.status(400).json({ error: "file is required" }); return; }
+  const language = (req.body as { language?: string }).language ?? "English";
+  try {
+    const snapshot = await extractFileText(req.file.buffer, req.file.mimetype, req.file.originalname);
+    const source: Source = {
+      id: uid(), type: "file",
+      reference: req.file.originalname,
+      snapshot,
+      ingestedAt: Date.now(),
+      language,
+      roadmap: null,
+    };
+    workspace.sources.push(source);
+    updateWorkspace(workspace);
+    res.status(201).json(source);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(422).json({ error: message });
+  }
 });
 
 // Delete source
