@@ -22,10 +22,22 @@ export const SkillTreeOutputSchema = z.object({
 
 export type SkillTreeOutput = z.infer<typeof SkillTreeOutputSchema>;
 
+export interface ResourceLink {
+  title: string;
+  url: string;
+  snippet: string;
+}
+
+export interface ResearchResult {
+  skillName: string;
+  resources: ResourceLink[];
+}
+
 export interface RoadbookState {
   input: string;
   inputType: InputType;
   title: string;
   skillTree: SkillNode[];
+  researchResults: ResearchResult[];
   roadbookMarkdown: string;
 }

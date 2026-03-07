@@ -1,4 +1,4 @@
-import type { RoadbookState, SkillNode } from "../types.js";
+import type { RoadbookState, SkillNode, ResearchResult } from "../types.js";
 
 function buildMermaidMindmap(title: string, skills: SkillNode[]): string {
   const lines: string[] = ["```mermaid", "mindmap", `  root((${title}))`];
@@ -25,7 +25,11 @@ function buildMermaidMindmap(title: string, skills: SkillNode[]): string {
   return lines.join("\n");
 }
 
-function buildSkillSection(skill: SkillNode, index: number): string {
+function buildSkillSection(
+  skill: SkillNode,
+  index: number,
+  research: ResearchResult | undefined,
+): string {
   const badge = skill.priority === "high" ? "🔴 高优先级"
     : skill.priority === "medium" ? "🟡 中优先级"
     : "🟢 低优先级";
@@ -45,18 +49,31 @@ function buildSkillSection(skill: SkillNode, index: number): string {
     "",
   ];
 
+  if (research && research.resources.length > 0) {
+    lines.push("**推荐资源：**");
+    for (const r of research.resources) {
+      lines.push(`- [${r.title}](${r.url})`);
+      if (r.snippet) lines.push(`  > ${r.snippet}`);
+    }
+    lines.push("");
+  }
+
   return lines.join("\n");
 }
 
 export function generateRoadbookMarkdown(
-  state: Pick<RoadbookState, "title" | "skillTree">,
+  state: Pick<RoadbookState, "title" | "skillTree" | "researchResults">,
 ): Partial<RoadbookState> {
-  const { title, skillTree } = state;
+  const { title, skillTree, researchResults } = state;
 
   const sorted = [...skillTree].sort((a, b) => {
     const order = { high: 0, medium: 1, low: 2 };
     return order[a.priority] - order[b.priority];
   });
+
+  const researchMap = new Map<string, ResearchResult>(
+    researchResults.map((r) => [r.skillName, r]),
+  );
 
   const sections = [
     `# ${title}`,
@@ -75,7 +92,7 @@ export function generateRoadbookMarkdown(
     "",
     `共 ${sorted.length} 个技能节点，按优先级排列：`,
     "",
-    ...sorted.map((s, i) => buildSkillSection(s, i)),
+    ...sorted.map((s, i) => buildSkillSection(s, i, researchMap.get(s.name))),
     "---",
     "",
     "*本路书由 [Roadbook](https://github.com/jackjin1997/Roadbook) 生成*",

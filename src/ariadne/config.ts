@@ -27,6 +27,7 @@ export function getModel(): BaseChatModel {
       return new ChatOpenAI({
         modelName: currentConfig.modelName ?? "gpt-4o",
         temperature: 0.3,
+        streaming: true,
       });
     case "anthropic":
       return new ChatAnthropic({

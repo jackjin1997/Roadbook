@@ -1,8 +1,9 @@
 import { StateGraph, Annotation, START, END } from "@langchain/langgraph";
 import { parseInput } from "./nodes/parseInput.js";
 import { extractSkillTree } from "./nodes/extractSkillTree.js";
+import { researchSkills } from "./nodes/researchNode.js";
 import { generateRoadbookMarkdown } from "./nodes/generateRoadbook.js";
-import type { SkillNode, InputType } from "./types.js";
+import type { SkillNode, InputType, ResearchResult } from "./types.js";
 
 const RoadbookAnnotation = Annotation.Root({
   input: Annotation<string>,
@@ -15,6 +16,10 @@ const RoadbookAnnotation = Annotation.Root({
     default: () => "",
   }),
   skillTree: Annotation<SkillNode[]>({
+    reducer: (_prev, next) => next,
+    default: () => [],
+  }),
+  researchResults: Annotation<ResearchResult[]>({
     reducer: (_prev, next) => next,
     default: () => [],
   }),
@@ -34,12 +39,16 @@ function buildWorkflow() {
     .addNode("extractSkillTree", async (state: RoadbookState) => {
       return await extractSkillTree(state);
     })
+    .addNode("researchSkills", async (state: RoadbookState) => {
+      return await researchSkills(state);
+    })
     .addNode("generateRoadbook", (state: RoadbookState) => {
       return generateRoadbookMarkdown(state);
     })
     .addEdge(START, "parseInput")
     .addEdge("parseInput", "extractSkillTree")
-    .addEdge("extractSkillTree", "generateRoadbook")
+    .addEdge("extractSkillTree", "researchSkills")
+    .addEdge("researchSkills", "generateRoadbook")
     .addEdge("generateRoadbook", END);
 
   return workflow.compile();
