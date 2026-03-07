@@ -120,4 +120,4 @@ pnpm build
 | v0.2 | 规划中 | 流式输出、Obsidian 双链、CLI JSON 模式 |
 | v0.3+ | 规划中 | 知识图谱持久化、Obsidian 插件、社区模板 |
 
-详见 [PRD.md](./PRD.md)。
+详见 [PRD.md](./docs/PRD.md)。
