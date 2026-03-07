@@ -92,6 +92,7 @@ describe("generateRoadbookMarkdown", () => {
       title: "徽章测试",
       skillTree: mockSkills,
       researchResults: [],
+      language: "Chinese (Simplified)",
     });
     expect(result.roadbookMarkdown).toContain("🔴 高优先级");
     expect(result.roadbookMarkdown).toContain("🟡 中优先级");
@@ -113,6 +114,7 @@ describe("generateRoadbookMarkdown", () => {
       title: "资源测试",
       skillTree: mockSkills,
       researchResults: mockResearch,
+      language: "Chinese (Simplified)",
     });
     expect(result.roadbookMarkdown).toContain("推荐资源");
     expect(result.roadbookMarkdown).toContain("[LangGraph.js Official Docs]");
@@ -144,6 +146,7 @@ describe("generateRoadbookMarkdown", () => {
       title: "空技能树",
       skillTree: [],
       researchResults: [],
+      language: "Chinese (Simplified)",
     });
     expect(result.roadbookMarkdown).toContain("共 0 个技能节点");
   });

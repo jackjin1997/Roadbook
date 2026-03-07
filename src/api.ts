@@ -61,9 +61,25 @@ export const addFileSource = async (workspaceId: string, file: File, language: s
 export const deleteSource = (workspaceId: string, sourceId: string) =>
   req<{ ok: boolean }>(`/workspaces/${workspaceId}/sources/${sourceId}`, { method: "DELETE" });
 
+// Models
+export const listModels = () =>
+  req<{ models: string[] }>("/models");
+
+// Chat
+export interface ChatMessage { role: "user" | "assistant"; content: string; }
+export const sendChatMessage = (
+  workspaceId: string,
+  messages: ChatMessage[],
+  sourceId?: string,
+) =>
+  req<{ reply: string; roadbookUpdated: boolean; roadmap: import("./types").Roadmap | null }>(
+    `/workspaces/${workspaceId}/chat`,
+    { method: "POST", body: JSON.stringify({ messages, sourceId }) },
+  );
+
 // Generate
-export const generateRoadmap = (workspaceId: string, sourceId: string) =>
+export const generateRoadmap = (workspaceId: string, sourceId: string, model?: string) =>
   req<{ roadmap: Roadmap; workspaceTitle: string }>(
     `/workspaces/${workspaceId}/sources/${sourceId}/generate`,
-    { method: "POST", body: JSON.stringify({}) },
+    { method: "POST", body: JSON.stringify(model ? { provider: "openai", model } : {}) },
   );

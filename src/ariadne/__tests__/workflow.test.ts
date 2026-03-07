@@ -94,7 +94,7 @@ describe("generateRoadbook (full workflow integration)", () => {
 
   it("markdown includes research resources from Tavily", async () => {
     const { generateRoadbook } = await import("../workflow.js");
-    const result = await generateRoadbook("LangGraph.js");
+    const result = await generateRoadbook("LangGraph.js", "Chinese (Simplified)");
     expect(result).toContain("推荐资源");
     expect(result).toContain("[Mock Tutorial]");
   });

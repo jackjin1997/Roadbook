@@ -11,8 +11,8 @@ interface ModelConfig {
 }
 
 const DEFAULT_CONFIG: ModelConfig = {
-  provider: "anthropic",
-  modelName: "claude-sonnet-4-6",
+  provider: "openai",
+  modelName: "claude-sonnet-4-5",
 };
 
 let currentConfig: ModelConfig = { ...DEFAULT_CONFIG };

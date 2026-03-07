@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -10,8 +10,12 @@ import {
   addFileSource,
   deleteSource,
   generateRoadmap,
+  listModels,
+  sendChatMessage,
 } from "../api";
+import type { ChatMessage } from "../api";
 import type { Workspace, Source } from "../types";
+import ResizeHandle from "../components/ResizeHandle";
 import { useLanguage } from "../contexts/LanguageContext";
 import { t, LANGUAGES } from "../i18n";
 
@@ -32,7 +36,22 @@ export default function WorkspacePage() {
   const [sourceDraft, setSourceDraft] = useState("");
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [addingSource, setAddingSource] = useState(false);
+  const [models, setModels] = useState<string[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>("");
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [sourceWidth, setSourceWidth] = useState(220);
+  const [chatWidth, setChatWidth] = useState(340);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
+
+  const resizeSources = useCallback((delta: number) => {
+    setSourceWidth((w) => Math.max(160, Math.min(400, w + delta)));
+  }, []);
+  const resizeChat = useCallback((delta: number) => {
+    setChatWidth((w) => Math.max(220, Math.min(600, w + delta)));
+  }, []);
   const { language, setLanguage } = useLanguage();
   const i = t(language);
 
@@ -43,6 +62,10 @@ export default function WorkspacePage() {
       setWorkspace(ws);
       setTitleDraft(ws.title);
       if (ws.sources.length > 0) setSelectedSourceId(ws.sources[0].id);
+    });
+    listModels().then(({ models }) => {
+      setModels(models);
+      if (models.length > 0) setSelectedModel(models.find(m => m.includes("sonnet")) ?? models[0]);
     });
   }, [id]);
 
@@ -103,7 +126,7 @@ export default function WorkspacePage() {
     if (!workspace) return;
     setGeneratingId(sourceId);
     try {
-      const { roadmap, workspaceTitle } = await generateRoadmap(workspace.id, sourceId);
+      const { roadmap, workspaceTitle } = await generateRoadmap(workspace.id, sourceId, selectedModel || undefined);
       setWorkspace((w) => {
         if (!w) return w;
         return {
@@ -117,6 +140,32 @@ export default function WorkspacePage() {
       setTitleDraft(workspaceTitle);
     } finally {
       setGeneratingId(null);
+    }
+  };
+
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
+  const handleChat = async () => {
+    if (!workspace || !chatInput.trim() || chatLoading) return;
+    const userMsg: ChatMessage = { role: "user", content: chatInput.trim() };
+    const next = [...chatMessages, userMsg];
+    setChatMessages(next);
+    setChatInput("");
+    setChatLoading(true);
+    try {
+      const res = await sendChatMessage(workspace.id, next, selectedSourceId ?? undefined);
+      const aiMsg: ChatMessage = { role: "assistant", content: res.reply };
+      setChatMessages([...next, aiMsg]);
+      if (res.roadbookUpdated && res.roadmap && selectedSourceId) {
+        setWorkspace((w) => w ? {
+          ...w,
+          sources: w.sources.map((s) => s.id === selectedSourceId ? { ...s, roadmap: res.roadmap } : s),
+        } : w);
+      }
+    } finally {
+      setChatLoading(false);
     }
   };
 
@@ -166,6 +215,23 @@ export default function WorkspacePage() {
         )}
 
         <div className="ml-auto flex items-center gap-3">
+          {models.length > 0 && (
+            <select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              className="text-xs rounded-lg px-2 py-1.5 focus:outline-none cursor-pointer"
+              style={{
+                background: "var(--color-surface)",
+                border: "1px solid var(--color-border)",
+                color: "var(--color-text-muted)",
+                maxWidth: 180,
+              }}
+            >
+              {models.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          )}
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
@@ -183,11 +249,11 @@ export default function WorkspacePage() {
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden" style={{ minHeight: 0 }}>
         {/* Sources panel */}
         <div
-          className="w-64 flex flex-col border-r shrink-0"
-          style={{ borderColor: "var(--color-border)" }}
+          className="flex flex-col shrink-0"
+          style={{ width: sourceWidth, borderRight: "none" }}
         >
           <div
             className="px-3 py-2.5 text-xs font-medium border-b flex items-center justify-between"
@@ -284,6 +350,8 @@ export default function WorkspacePage() {
           )}
         </div>
 
+        <ResizeHandle onResize={resizeSources} />
+
         {/* Roadmap panel */}
         <div className="flex-1 overflow-auto" style={{ background: "var(--color-surface)" }}>
           {!selectedSource ? (
@@ -316,6 +384,83 @@ export default function WorkspacePage() {
               onGenerate={() => handleGenerate(selectedSource.id)}
             />
           )}
+        </div>
+
+        <ResizeHandle onResize={resizeChat} />
+
+        {/* Chat panel */}
+        <div
+          className="flex flex-col shrink-0"
+          style={{ width: chatWidth, background: "var(--color-bg)" }}
+        >
+          <div
+            className="px-3 py-2.5 text-xs font-medium border-b shrink-0"
+            style={{ color: "var(--color-text-muted)", borderColor: "var(--color-border)" }}
+          >
+            Chat · Ariadne
+          </div>
+          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
+            {chatMessages.length === 0 && (
+              <p className="text-xs text-center mt-8" style={{ color: "var(--color-text-muted)", opacity: 0.5 }}>
+                Ask Ariadne anything about this journey, or request roadbook changes.
+              </p>
+            )}
+            {chatMessages.map((msg, idx) => (
+              <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div
+                  className="text-xs rounded-xl px-3 py-2 max-w-[85%] leading-relaxed"
+                  style={msg.role === "user" ? {
+                    background: "var(--color-accent)",
+                    color: "#fff",
+                    borderRadius: "12px 12px 3px 12px",
+                  } : {
+                    background: "var(--color-surface)",
+                    color: "var(--color-text)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: "12px 12px 12px 3px",
+                  }}
+                >
+                  <div className="prose prose-xs max-w-none">
+                    <Markdown remarkPlugins={[remarkGfm]}>{msg.content}</Markdown>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {chatLoading && (
+              <div className="flex justify-start">
+                <div className="text-xs px-3 py-2 rounded-xl" style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-text-muted)" }}>
+                  <span className="animate-pulse">···</span>
+                </div>
+              </div>
+            )}
+            <div ref={chatBottomRef} />
+          </div>
+          <div className="p-3 border-t shrink-0" style={{ borderColor: "var(--color-border)" }}>
+            <div className="flex gap-2">
+              <textarea
+                rows={2}
+                className="flex-1 text-xs rounded-lg px-2.5 py-2 resize-none focus:outline-none"
+                style={{
+                  background: "var(--color-surface)",
+                  border: "1px solid var(--color-border)",
+                  color: "var(--color-text)",
+                }}
+                placeholder="Ask or instruct Ariadne..."
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleChat(); }
+                }}
+              />
+              <button
+                onClick={handleChat}
+                disabled={!chatInput.trim() || chatLoading}
+                className="btn-gradient text-xs px-3 rounded-lg disabled:opacity-40 shrink-0"
+              >
+                ↑
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

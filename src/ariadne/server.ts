@@ -13,6 +13,8 @@ import mammoth from "mammoth";
 const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
 import { generateRoadbook } from "./workflow.js";
+import { chat } from "./chat.js";
+import type { ChatMessage } from "./chat.js";
 import { setModelConfig } from "./config.js";
 import type { ModelProvider } from "./config.js";
 import { logTracingStatus } from "./tracing.js";
@@ -146,6 +148,23 @@ app.use(express.json({ limit: "2mb" }));
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", engine: "ariadne" });
+});
+
+// List available models from the OpenAI-compatible proxy
+app.get("/models", async (_req, res) => {
+  try {
+    const base = process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1";
+    const r = await fetch(`${base}/models`, {
+      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!r.ok) { res.json({ models: [] }); return; }
+    const data = await r.json() as { data: { id: string }[] };
+    const models = data.data.map((m) => m.id).sort();
+    res.json({ models });
+  } catch {
+    res.json({ models: [] });
+  }
 });
 
 // ── Workspace endpoints ───────────────────────────────────────────────────────
@@ -282,6 +301,52 @@ app.delete("/workspaces/:id/sources/:sourceId", (req, res) => {
   workspace.sources = workspace.sources.filter((s) => s.id !== req.params.sourceId);
   updateWorkspace(workspace);
   res.json({ ok: true });
+});
+
+// ── Chat ──────────────────────────────────────────────────────────────────────
+
+app.post("/workspaces/:id/chat", async (req, res) => {
+  const workspace = findWorkspace(req.params.id as string);
+  if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
+
+  const { messages, sourceId } = req.body as {
+    messages: ChatMessage[];
+    sourceId?: string;
+  };
+  if (!messages?.length) { res.status(400).json({ error: "messages required" }); return; }
+
+  const source = sourceId ? workspace.sources.find((s) => s.id === sourceId) : null;
+  const userMessage = messages[messages.length - 1].content;
+  const history = messages.slice(0, -1);
+
+  try {
+    const result = await chat({
+      workspaceTitle: workspace.title,
+      sourceSnapshot: source?.snapshot ?? null,
+      roadbookMarkdown: source?.roadmap?.markdown ?? null,
+      history,
+      userMessage,
+    });
+
+    // Apply roadbook update if AI produced one
+    if (result.roadbookUpdate && source) {
+      source.roadmap = {
+        id: source.roadmap?.id ?? uid(),
+        markdown: result.roadbookUpdate,
+        generatedAt: Date.now(),
+      };
+      updateWorkspace(workspace);
+    }
+
+    res.json({
+      reply: result.reply,
+      roadbookUpdated: !!result.roadbookUpdate,
+      roadmap: source?.roadmap ?? null,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
+  }
 });
 
 // ── Generate roadmap ──────────────────────────────────────────────────────────
