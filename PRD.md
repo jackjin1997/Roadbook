@@ -31,6 +31,7 @@ Roadbook 是一个**主动发散与构建**的 AI 学习路径生成器。区别
 
 - **主要用户**：传统后端/全栈开发者，正在向 AI 工程方向转型
 - **次要用户**：任何需要从非结构化文本中提取结构化学习路径的技术从业者
+- **机器用户（新）**：Claude Code、OpenClaw 等 AI coding agent，以及偏好命令行的轻量开发者——通过 CLI 直接调度 Ariadne，将路书生成作为 agent workflow 中的一个工具节点
 
 ---
 
@@ -47,6 +48,16 @@ Roadbook 是一个**主动发散与构建**的 AI 学习路径生成器。区别
 ### 场景 C：概念扫盲
 
 用户输入一个技术概念（如 "StreamBridge"）-> Ariadne 识别歧义（多语境）-> 结合上下文剪枝 -> 生成该概念的知识图谱路书
+
+### 场景 D：Agent / CLI 调度
+
+Claude Code 或 OpenClaw 在协助用户学习新技术时，直接通过 CLI 调用 Ariadne：
+```bash
+echo "LangGraph.js" | npx ariadne --format json
+# 或
+npx ariadne "Node.js 高级后端工程师 JD" --output roadbook.md
+```
+Ariadne 返回结构化 JSON 或 Markdown，agent 可将其作为上下文继续处理，无需打开 GUI。
 
 ### 核心数据流
 
@@ -82,6 +93,12 @@ flowchart LR
 - **F8 - 流式输出**：Agent 工作过程中实时展示进度和中间结果
 - **F9 - 历史管理**：本地保存历史路书，支持查看和对比
 - **F10 - 歧义消解交互**：当检测到多义概念时，交互式让用户选择上下文方向
+- **F11 - CLI 一等公民支持**：面向 AI agent 和轻量开发者的命令行接口
+  - `--format json`：输出结构化 JSON，供 agent 程序消费
+  - `--format markdown`：输出纯 Markdown，适合管道和文件保存
+  - stdin 支持：`cat jd.txt | npx ariadne`
+  - 语义化 exit code：0 成功 / 1 输入错误 / 2 生成失败
+  - 无副作用模式（`--dry-run`）：仅解析技能树，不执行联网调研
 
 ### Future（v0.3+）
 

@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "description": "输入一份 JD，Ariadne 为你生成专属的通关路书",
   "type": "module",
+  "packageManager": "pnpm@10.29.1",
   "scripts": {
     "dev": "vite",
     "dev:server": "tsx watch src/ariadne/server.ts",
@@ -22,6 +23,7 @@
     "@langchain/langgraph": "^1.2.0",
     "@langchain/openai": "^1.2.12",
     "@langchain/tavily": "^1.2.0",
+    "@tailwindcss/typography": "^0.5.19",
     "@tauri-apps/api": "^2.10.1",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",

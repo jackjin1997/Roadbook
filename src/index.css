@@ -1,14 +1,15 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 :root {
-  --color-bg: #0f172a;
-  --color-surface: #1e293b;
-  --color-surface-hover: #334155;
-  --color-border: #334155;
-  --color-text: #f1f5f9;
-  --color-text-muted: #94a3b8;
-  --color-accent: #6366f1;
-  --color-accent-hover: #818cf8;
+  --color-bg: #1c1e2a;
+  --color-surface: #252838;
+  --color-surface-hover: #2e3146;
+  --color-border: #383b54;
+  --color-text: #e8eaf6;
+  --color-text-muted: #9da3c4;
+  --color-accent: #818cf8;
+  --color-accent-hover: #a5b0ff;
 }
 
 body {
@@ -26,4 +27,17 @@ body {
 
 * {
   box-sizing: border-box;
+}
+
+/* Prose link styles */
+.prose a {
+  color: #a5b0ff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 500;
+  transition: color 0.15s;
+}
+
+.prose a:hover {
+  color: #c7ceff;
 }

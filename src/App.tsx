@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -6,7 +6,14 @@ const API_URL = "http://localhost:3001";
 
 type Status = "idle" | "running" | "done" | "error";
 
-async function callAriadne(input: string): Promise<string> {
+interface HistoryItem {
+  id: string;
+  input: string;
+  markdown: string;
+  createdAt: number;
+}
+
+async function callAriadne(input: string): Promise<{ markdown: string; id: string }> {
   const res = await fetch(`${API_URL}/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -18,8 +25,22 @@ async function callAriadne(input: string): Promise<string> {
     throw new Error(err.error || `HTTP ${res.status}`);
   }
 
-  const data = await res.json();
-  return data.markdown;
+  return res.json();
+}
+
+async function fetchHistory(): Promise<HistoryItem[]> {
+  const res = await fetch(`${API_URL}/history`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+async function deleteHistoryItem(id: string) {
+  await fetch(`${API_URL}/history/${id}`, { method: "DELETE" });
+}
+
+function formatTime(ts: number) {
+  const d = new Date(ts);
+  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 function App() {
@@ -27,20 +48,48 @@ function App() {
   const [result, setResult] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchHistory().then(setHistory);
+  }, []);
 
   const handleGenerate = async () => {
     if (!input.trim()) return;
     setStatus("running");
     setResult("");
     setError("");
+    setActiveId(null);
 
     try {
-      const roadbook = await callAriadne(input);
-      setResult(roadbook);
+      const { markdown, id } = await callAriadne(input);
+      setResult(markdown);
+      setActiveId(id);
       setStatus("done");
+      fetchHistory().then(setHistory);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setStatus("error");
+    }
+  };
+
+  const handleSelectHistory = (item: HistoryItem) => {
+    setResult(item.markdown);
+    setInput(item.input);
+    setActiveId(item.id);
+    setStatus("done");
+    setError("");
+  };
+
+  const handleDeleteHistory = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await deleteHistoryItem(id);
+    setHistory((prev) => prev.filter((h) => h.id !== id));
+    if (activeId === id) {
+      setResult("");
+      setStatus("idle");
+      setActiveId(null);
     }
   };
 
@@ -59,8 +108,48 @@ function App() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
+        {/* History Sidebar */}
+        <div className="w-[200px] flex flex-col border-r border-[var(--color-border)] shrink-0">
+          <div className="px-3 py-3 text-xs font-medium text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
+            历史记录
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {history.length === 0 ? (
+              <p className="px-3 py-4 text-xs text-[var(--color-text-muted)]/50 text-center">
+                暂无记录
+              </p>
+            ) : (
+              history.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => handleSelectHistory(item)}
+                  className={`group px-3 py-2.5 cursor-pointer border-b border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] transition-colors ${
+                    activeId === item.id ? "bg-[var(--color-surface)]" : ""
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-1">
+                    <p className="text-xs text-[var(--color-text)] line-clamp-2 leading-relaxed flex-1">
+                      {item.input.slice(0, 60)}
+                      {item.input.length > 60 ? "..." : ""}
+                    </p>
+                    <button
+                      onClick={(e) => handleDeleteHistory(item.id, e)}
+                      className="opacity-0 group-hover:opacity-100 text-[var(--color-text-muted)] hover:text-red-400 transition-opacity shrink-0 text-xs leading-none mt-0.5"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-[var(--color-text-muted)]/60 mt-1">
+                    {formatTime(item.createdAt)}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
         {/* Input Panel */}
-        <div className="w-[420px] flex flex-col border-r border-[var(--color-border)] shrink-0">
+        <div className="w-[380px] flex flex-col border-r border-[var(--color-border)] shrink-0">
           <div className="px-4 py-3 text-sm font-medium text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
             输入 JD / 文章 / 技术概念
           </div>

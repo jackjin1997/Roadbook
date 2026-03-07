@@ -24,3 +24,6 @@ Thumbs.db
 
 # Roadbook output
 output/
+
+# Local data (history)
+data/
