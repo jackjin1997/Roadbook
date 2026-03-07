@@ -8,81 +8,190 @@ import { setModelConfig } from "./config.js";
 import type { ModelProvider } from "./config.js";
 import { logTracingStatus } from "./tracing.js";
 
-const app = express();
-const PORT = Number(process.env.ARIADNE_PORT) || 3001;
+// ── Types ────────────────────────────────────────────────────────────────────
 
-// History persistence
-interface HistoryItem {
+export interface Roadmap {
   id: string;
-  input: string;
   markdown: string;
-  createdAt: number;
+  generatedAt: number;
 }
 
-const DATA_DIR = join(process.cwd(), "data");
-const HISTORY_FILE = join(DATA_DIR, "history.json");
+export interface Source {
+  id: string;
+  type: "text";
+  reference: string;
+  snapshot: string;
+  ingestedAt: number;
+  language: string;
+  roadmap: Roadmap | null;
+}
 
-function loadHistory(): HistoryItem[] {
+export interface Workspace {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  sources: Source[];
+}
+
+// ── Store ────────────────────────────────────────────────────────────────────
+
+const DATA_DIR = join(process.cwd(), "data");
+const STORE_FILE = join(DATA_DIR, "workspaces.json");
+
+function loadStore(): Workspace[] {
   try {
-    if (!existsSync(HISTORY_FILE)) return [];
-    return JSON.parse(readFileSync(HISTORY_FILE, "utf-8"));
+    if (!existsSync(STORE_FILE)) return [];
+    return JSON.parse(readFileSync(STORE_FILE, "utf-8"));
   } catch {
     return [];
   }
 }
 
-function saveHistory(history: HistoryItem[]) {
+function saveStore(workspaces: Workspace[]) {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
-  writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2), "utf-8");
+  writeFileSync(STORE_FILE, JSON.stringify(workspaces, null, 2), "utf-8");
 }
 
+function findWorkspace(id: string): Workspace | undefined {
+  return loadStore().find((w) => w.id === id);
+}
+
+function updateWorkspace(updated: Workspace) {
+  const all = loadStore();
+  const idx = all.findIndex((w) => w.id === updated.id);
+  if (idx === -1) return false;
+  updated.updatedAt = Date.now();
+  all[idx] = updated;
+  saveStore(all);
+  return true;
+}
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+// ── App ──────────────────────────────────────────────────────────────────────
+
+const app = express();
+const PORT = Number(process.env.ARIADNE_PORT) || 3001;
+
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "2mb" }));
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", engine: "ariadne" });
 });
 
-app.get("/history", (_req, res) => {
-  res.json(loadHistory());
+// ── Workspace endpoints ───────────────────────────────────────────────────────
+
+// List workspaces (metadata only)
+app.get("/workspaces", (_req, res) => {
+  const all = loadStore();
+  const list = all.map(({ id, title, createdAt, updatedAt, sources }) => ({
+    id,
+    title,
+    createdAt,
+    updatedAt,
+    sourceCount: sources.length,
+    generatedCount: sources.filter((s) => s.roadmap !== null).length,
+  }));
+  res.json(list);
 });
 
-app.delete("/history/:id", (req, res) => {
-  const history = loadHistory().filter((h) => h.id !== req.params.id);
-  saveHistory(history);
+// Create workspace
+app.post("/workspaces", (req, res) => {
+  const { title } = req.body as { title?: string };
+  const workspace: Workspace = {
+    id: uid(),
+    title: title?.trim() || "New Journey",
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    sources: [],
+  };
+  const all = loadStore();
+  saveStore([workspace, ...all]);
+  res.status(201).json(workspace);
+});
+
+// Get workspace (full)
+app.get("/workspaces/:id", (req, res) => {
+  const workspace = findWorkspace(req.params.id);
+  if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(workspace);
+});
+
+// Update workspace (rename)
+app.patch("/workspaces/:id", (req, res) => {
+  const workspace = findWorkspace(req.params.id);
+  if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
+  const { title } = req.body as { title?: string };
+  if (title?.trim()) workspace.title = title.trim();
+  updateWorkspace(workspace);
+  res.json(workspace);
+});
+
+// Delete workspace
+app.delete("/workspaces/:id", (req, res) => {
+  const all = loadStore().filter((w) => w.id !== req.params.id);
+  saveStore(all);
   res.json({ ok: true });
 });
 
-app.post("/generate", async (req, res) => {
-  const { input, provider, model, language } = req.body as {
-    input?: string;
-    provider?: ModelProvider;
-    model?: string;
-    language?: string;
+// ── Source endpoints ──────────────────────────────────────────────────────────
+
+// Add source
+app.post("/workspaces/:id/sources", (req, res) => {
+  const workspace = findWorkspace(req.params.id);
+  if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
+  const { text, language } = req.body as { text?: string; language?: string };
+  if (!text?.trim()) { res.status(400).json({ error: "text is required" }); return; }
+  const source: Source = {
+    id: uid(),
+    type: "text",
+    reference: text.trim(),
+    snapshot: text.trim(),
+    ingestedAt: Date.now(),
+    language: language ?? "English",
+    roadmap: null,
   };
+  workspace.sources.push(source);
+  updateWorkspace(workspace);
+  res.status(201).json(source);
+});
 
-  if (!input?.trim()) {
-    res.status(400).json({ error: "input is required" });
-    return;
-  }
+// Delete source
+app.delete("/workspaces/:id/sources/:sourceId", (req, res) => {
+  const workspace = findWorkspace(req.params.id);
+  if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
+  workspace.sources = workspace.sources.filter((s) => s.id !== req.params.sourceId);
+  updateWorkspace(workspace);
+  res.json({ ok: true });
+});
 
-  if (provider || model) {
-    setModelConfig({ provider, modelName: model });
-  }
+// ── Generate roadmap ──────────────────────────────────────────────────────────
+
+app.post("/workspaces/:id/sources/:sourceId/generate", async (req, res) => {
+  const workspace = findWorkspace(req.params.id);
+  if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
+  const source = workspace.sources.find((s) => s.id === req.params.sourceId);
+  if (!source) { res.status(404).json({ error: "Source not found" }); return; }
+
+  const { provider, model } = req.body as { provider?: ModelProvider; model?: string };
+  if (provider || model) setModelConfig({ provider, modelName: model });
 
   try {
-    const markdown = await generateRoadbook(input, language ?? "English");
+    const markdown = await generateRoadbook(source.snapshot, source.language);
+    source.roadmap = { id: uid(), markdown, generatedAt: Date.now() };
 
-    const item: HistoryItem = {
-      id: Date.now().toString(),
-      input: input.trim(),
-      markdown,
-      createdAt: Date.now(),
-    };
-    const history = loadHistory();
-    saveHistory([item, ...history]);
+    // Auto-title workspace from first roadmap if still default
+    if (workspace.title === "New Journey") {
+      const titleMatch = markdown.match(/^#\s+(.+)$/m);
+      if (titleMatch) workspace.title = titleMatch[1].trim();
+    }
 
-    res.json({ markdown, id: item.id });
+    updateWorkspace(workspace);
+    res.json({ roadmap: source.roadmap, workspaceTitle: workspace.title });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("Generation failed:", message);

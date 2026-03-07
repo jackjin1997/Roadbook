@@ -2,14 +2,15 @@
 @plugin "@tailwindcss/typography";
 
 :root {
-  --color-bg: #1c1e2a;
-  --color-surface: #252838;
-  --color-surface-hover: #2e3146;
-  --color-border: #383b54;
-  --color-text: #e8eaf6;
-  --color-text-muted: #9da3c4;
-  --color-accent: #818cf8;
-  --color-accent-hover: #a5b0ff;
+  --color-bg: #f5f4f9;
+  --color-surface: #ffffff;
+  --color-surface-hover: #eeecf6;
+  --color-border: #e0ddf0;
+  --color-text: #1e1b30;
+  --color-text-muted: #7971a8;
+  --color-accent: #7c6de0;
+  --color-accent-hover: #6b5cc8;
+  --gradient-accent: linear-gradient(135deg, #7c6de0, #a897f0);
 }
 
 body {
@@ -29,15 +30,150 @@ body {
   box-sizing: border-box;
 }
 
-/* Prose link styles */
+.gradient-text {
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-flow {
+  background: linear-gradient(90deg, #7c6de0, #a897f0, #8ab4f0, #7c6de0);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradient-flow 5s ease infinite;
+}
+
+@keyframes gradient-flow {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+.anim-fade-up {
+  opacity: 0;
+  animation: fade-up 0.6s ease forwards;
+}
+
+.cursor-blink::after {
+  content: '|';
+  animation: blink 0.9s step-end infinite;
+  color: var(--color-accent);
+  font-weight: 200;
+  margin-left: 2px;
+  display: inline;
+}
+
+.hero-btn {
+  position: relative;
+  overflow: hidden;
+  background: transparent;
+  color: var(--color-accent);
+  border: 1.5px solid var(--color-accent);
+  cursor: pointer;
+  padding: 10px 32px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: color 0.3s ease;
+  z-index: 0;
+}
+.hero-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--color-accent);
+  transform: translateY(101%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: -1;
+}
+.hero-btn:hover:not(:disabled) {
+  color: #fff;
+}
+.hero-btn:hover:not(:disabled)::before {
+  transform: translateY(0);
+}
+.hero-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.btn-gradient {
+  background: var(--gradient-accent);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+}
+.btn-gradient:hover:not(:disabled) {
+  opacity: 0.88;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(109, 94, 240, 0.35);
+}
+.btn-gradient:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Prose overrides for light mode */
+.prose {
+  color: var(--color-text);
+}
+.prose h1, .prose h2, .prose h3, .prose h4 {
+  color: var(--color-text);
+}
+.prose strong {
+  color: var(--color-text);
+}
+.prose blockquote {
+  border-left-color: var(--color-accent);
+  color: var(--color-text-muted);
+}
+.prose code {
+  background: var(--color-surface-hover);
+  color: var(--color-accent);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  font-size: 0.875em;
+}
+.prose pre {
+  background: #f0eefa !important;
+  border: 1px solid var(--color-border);
+}
+.prose hr {
+  border-color: var(--color-border);
+}
 .prose a {
-  color: #a5b0ff;
+  color: var(--color-accent);
   text-decoration: underline;
   text-underline-offset: 3px;
   font-weight: 500;
   transition: color 0.15s;
 }
-
 .prose a:hover {
-  color: #c7ceff;
+  color: var(--color-accent-hover);
 }
+.prose ul > li::marker,
+.prose ol > li::marker {
+  color: var(--color-text-muted);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
