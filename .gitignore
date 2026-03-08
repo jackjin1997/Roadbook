@@ -27,3 +27,6 @@ output/
 
 # Local data (history)
 data/
+
+# Test coverage
+coverage/
