@@ -120,7 +120,38 @@ function uid() {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+// Job boards and SPAs that require a headless renderer to extract content
+const SPA_PATTERNS = [
+  /zhipin\.com/,       // BOSS直聘
+  /linkedin\.com/,     // LinkedIn
+  /lagou\.com/,        // 拉勾
+  /maimai\.cn/,        // 脉脉
+  /liepin\.com/,       // 猎聘
+  /51job\.com/,        // 前程无忧
+  /zhaopin\.com/,      // 智联招聘
+];
+
+async function fetchViaJina(url: string): Promise<string> {
+  const res = await fetch(`https://r.jina.ai/${url}`, {
+    headers: {
+      "Accept": "text/plain",
+      "User-Agent": "Mozilla/5.0 (compatible; Ariadne/1.0)",
+    },
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok) throw new Error(`Jina Reader failed: ${res.status} ${res.statusText}`);
+  const text = await res.text();
+  if (!text.trim()) throw new Error("Could not extract content via Jina Reader");
+  return text.replace(/\s+/g, " ").trim();
+}
+
 async function fetchUrlSnapshot(url: string): Promise<string> {
+  // Route known SPA / job-board URLs directly through Jina Reader
+  if (SPA_PATTERNS.some((p) => p.test(url))) {
+    return fetchViaJina(url);
+  }
+
+  // Standard fetch + Readability for regular pages
   const res = await fetch(url, {
     headers: { "User-Agent": "Mozilla/5.0 (compatible; Ariadne/1.0)" },
     signal: AbortSignal.timeout(15_000),
@@ -129,8 +160,14 @@ async function fetchUrlSnapshot(url: string): Promise<string> {
   const html = await res.text();
   const dom = new JSDOM(html, { url });
   const article = new Readability(dom.window.document).parse();
-  if (!article?.textContent) throw new Error("Could not extract readable content from URL");
-  return article.textContent.replace(/\s+/g, " ").trim();
+  const text = article?.textContent?.replace(/\s+/g, " ").trim() ?? "";
+
+  // Fallback to Jina if content is suspiciously thin (likely an SPA)
+  if (text.length < 200) {
+    return fetchViaJina(url);
+  }
+
+  return text;
 }
 
 async function extractFileText(buffer: Buffer, mimeType: string, filename: string): Promise<string> {

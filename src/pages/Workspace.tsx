@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { MermaidDiagram } from "../components/MermaidDiagram";
 import {
   getWorkspace,
   renameWorkspace,
@@ -25,6 +26,17 @@ import type { Workspace, Source, Insight, ResearchTodo } from "../types";
 import ResizeHandle from "../components/ResizeHandle";
 import { useLanguage } from "../contexts/LanguageContext";
 import { t, LANGUAGES } from "../i18n";
+
+// Markdown renderer with mermaid diagram support
+const mdComponents = {
+  code({ className, children, ...props }: React.ComponentPropsWithoutRef<"code"> & { inline?: boolean }) {
+    const lang = className?.replace("language-", "");
+    if (lang === "mermaid") {
+      return <MermaidDiagram code={String(children).trim()} />;
+    }
+    return <code className={className} {...props}>{children}</code>;
+  },
+};
 
 function formatDate(ts: number) {
   const d = new Date(ts);
@@ -99,7 +111,7 @@ export default function WorkspacePage() {
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   const resizeSources = useCallback((delta: number) => setSourceWidth((w) => Math.max(160, Math.min(400, w + delta))), []);
-  const resizeChat = useCallback((delta: number) => setChatWidth((w) => Math.max(260, Math.min(600, w + delta))), []);
+  const resizeChat = useCallback((delta: number) => setChatWidth((w) => Math.max(260, Math.min(600, w - delta))), []);
   const { language, setLanguage } = useLanguage();
   const i = t(language);
 
@@ -436,15 +448,15 @@ export default function WorkspacePage() {
                 {!selectedSource ? (
                   <EmptyState i={i} onAdd={() => setShowAddSource(true)} />
                 ) : selectedSource.roadmap ? (
-                  <div className="p-8 max-w-4xl mx-auto">
-                    <div className="flex items-center justify-between mb-6">
-                      <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-                        {selectedSource.origin === "research" && <span className="mr-2">🔬</span>}
-                        {i.generated} {formatDate(selectedSource.roadmap.generatedAt)}
+                  <div className="px-10 py-8 max-w-3xl mx-auto">
+                    <div className="flex items-center justify-between mb-8">
+                      <p className="text-xs flex items-center gap-1.5" style={{ color: "var(--color-text-muted)" }}>
+                        {selectedSource.origin === "research" && <span>🔬</span>}
+                        <span style={{ opacity: 0.6 }}>{i.generated} {formatDate(selectedSource.roadmap.generatedAt)}</span>
                       </p>
                       <button onClick={() => handleGenerate(selectedSource.id)} disabled={generatingId === selectedSource.id}
-                        className="text-xs px-3 py-1 rounded-lg transition-colors disabled:opacity-40"
-                        style={{ border: "1px solid var(--color-border)", color: "var(--color-text-muted)" }}>
+                        className="text-xs px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40"
+                        style={{ border: "1px solid var(--color-border)", color: "var(--color-text-muted)", background: "var(--color-surface)" }}>
                         {generatingId === selectedSource.id ? i.regenerating : i.regenerate}
                       </button>
                     </div>
@@ -457,7 +469,7 @@ export default function WorkspacePage() {
                       />
                     ) : (
                       <article className="prose prose-sm max-w-none">
-                        <Markdown remarkPlugins={[remarkGfm]}>{selectedSource.roadmap.markdown}</Markdown>
+                        <Markdown remarkPlugins={[remarkGfm]} components={mdComponents}>{selectedSource.roadmap.markdown}</Markdown>
                       </article>
                     )}
                   </div>
@@ -469,19 +481,19 @@ export default function WorkspacePage() {
 
             {mainTab === "journey" && (
               workspace.roadmap ? (
-                <div className="p-8 max-w-4xl mx-auto">
-                  <div className="flex items-center justify-between mb-6">
-                    <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-                      Journey Roadmap · {formatDate(workspace.roadmap.generatedAt)}
+                <div className="px-10 py-8 max-w-3xl mx-auto">
+                  <div className="flex items-center justify-between mb-8">
+                    <p className="text-xs" style={{ color: "var(--color-text-muted)", opacity: 0.6 }}>
+                      Journey · {formatDate(workspace.roadmap.generatedAt)}
                     </p>
                     <button onClick={handleGenerateJourney} disabled={generatingJourney}
-                      className="text-xs px-3 py-1 rounded-lg disabled:opacity-40"
-                      style={{ border: "1px solid var(--color-border)", color: "var(--color-text-muted)" }}>
+                      className="text-xs px-3 py-1.5 rounded-lg disabled:opacity-40"
+                      style={{ border: "1px solid var(--color-border)", color: "var(--color-text-muted)", background: "var(--color-surface)" }}>
                       {generatingJourney ? "Weaving…" : "Regenerate"}
                     </button>
                   </div>
-                  <article className="prose prose-sm max-w-none">
-                    <Markdown remarkPlugins={[remarkGfm]}>{workspace.roadmap.markdown}</Markdown>
+                  <article className="prose max-w-none">
+                    <Markdown remarkPlugins={[remarkGfm]} components={mdComponents}>{workspace.roadmap.markdown}</Markdown>
                   </article>
                 </div>
               ) : (
@@ -574,11 +586,12 @@ export default function WorkspacePage() {
                 )}
                 {chatMessages.map((msg, idx) => (
                   <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                    <div className="text-xs rounded-xl px-3 py-2 max-w-[85%] leading-relaxed"
-                      style={msg.role === "user" ? { background: "var(--color-accent)", color: "#fff", borderRadius: "12px 12px 3px 12px" }
-                        : { background: "var(--color-surface)", color: "var(--color-text)", border: "1px solid var(--color-border)", borderRadius: "12px 12px 12px 3px" }}>
+                    <div className="text-xs max-w-[88%] leading-relaxed"
+                      style={msg.role === "user"
+                        ? { background: "var(--color-accent)", color: "#fff", borderRadius: "14px 14px 3px 14px", padding: "8px 12px" }
+                        : { background: "var(--color-surface)", color: "var(--color-text)", border: "1px solid var(--color-border)", borderRadius: "14px 14px 14px 3px", padding: "8px 12px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
                       <div className="prose prose-xs max-w-none">
-                        <Markdown remarkPlugins={[remarkGfm]}>{msg.content}</Markdown>
+                        <Markdown remarkPlugins={[remarkGfm]} components={mdComponents}>{msg.content}</Markdown>
                       </div>
                     </div>
                   </div>
@@ -816,42 +829,65 @@ function SourceItem({ source, selected, checked, generating, digestStatus, onSel
   i: ReturnType<typeof t>;
 }) {
   return (
-    <div onClick={onSelect} className="group px-3 py-2.5 cursor-pointer border-b"
-      style={{ borderColor: "var(--color-border)", background: selected ? "var(--color-surface)" : "transparent" }}>
-      <div className="flex items-start gap-1.5">
-        <input type="checkbox" checked={checked} onClick={(e) => e.stopPropagation()}
-          onChange={(e) => onCheck(e.target.checked)} className="mt-0.5 shrink-0 cursor-pointer" />
-        <div className="flex-1 min-w-0">
-          {source.type === "url" ? (
-            <a href={source.reference} target="_blank" rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="text-xs leading-relaxed line-clamp-2 hover:underline block"
-              style={{ color: "var(--color-accent)" }}>
-              {source.reference.replace(/^https?:\/\//, "").slice(0, 55)}
-            </a>
+    <div
+      onClick={onSelect}
+      className="group cursor-pointer relative"
+      style={{
+        borderBottom: "1px solid var(--color-border)",
+        background: selected
+          ? "color-mix(in srgb, var(--color-accent) 6%, var(--color-surface))"
+          : "transparent",
+        transition: "background 0.1s",
+      }}
+    >
+      {/* Selected indicator */}
+      {selected && (
+        <div style={{
+          position: "absolute", left: 0, top: 0, bottom: 0,
+          width: 2.5, background: "var(--color-accent)", borderRadius: "0 2px 2px 0",
+        }} />
+      )}
+      <div className="px-3 py-2.5 pl-4">
+        <div className="flex items-start gap-1.5">
+          <input type="checkbox" checked={checked} onClick={(e) => e.stopPropagation()}
+            onChange={(e) => onCheck(e.target.checked)} className="mt-0.5 shrink-0 cursor-pointer" />
+          <div className="flex-1 min-w-0">
+            {source.type === "url" ? (
+              <a href={source.reference} target="_blank" rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-xs leading-snug line-clamp-2 hover:underline block"
+                style={{ color: "var(--color-accent)" }}>
+                {source.reference.replace(/^https?:\/\//, "").slice(0, 55)}
+              </a>
+            ) : (
+              <p className="text-xs leading-snug line-clamp-2" style={{ color: "var(--color-text)" }}>
+                {source.origin === "research" ? "🔬 " : source.type === "file" ? "↑ " : ""}
+                {source.reference.slice(0, 75)}{source.reference.length > 75 ? "…" : ""}
+              </p>
+            )}
+          </div>
+          <button onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            className="opacity-0 group-hover:opacity-100 text-xs shrink-0 mt-0.5 transition-opacity"
+            style={{ color: "var(--color-text-muted)" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#f87171")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-text-muted)")}>×</button>
+        </div>
+        <div className="flex items-center justify-between mt-1.5 pl-5">
+          {source.roadmap ? (
+            <span className="text-[10px] font-medium flex items-center gap-1" style={{ color: "#10b981" }}>
+              <span style={{ opacity: 0.7 }}>{digestStatus}</span>
+              <span style={{ opacity: 0.6 }}>{i.roadmapReady}</span>
+            </span>
           ) : (
-            <p className="text-xs leading-relaxed line-clamp-2" style={{ color: "var(--color-text)" }}>
-              {source.origin === "research" ? "🔬 " : source.type === "file" ? "↑ " : ""}
-              {source.reference.slice(0, 75)}{source.reference.length > 75 ? "…" : ""}
-            </p>
+            <span className="text-[10px]" style={{ color: "var(--color-text-muted)", opacity: 0.4 }}>—</span>
+          )}
+          {!source.roadmap && (
+            <button onClick={(e) => { e.stopPropagation(); onGenerate(); }} disabled={generating}
+              className="btn-gradient text-[10px] px-2 py-0.5 rounded-md disabled:opacity-40">
+              {generating ? "…" : "生成路书"}
+            </button>
           )}
         </div>
-        <button onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          className="opacity-0 group-hover:opacity-100 text-xs shrink-0 mt-0.5 transition-opacity"
-          style={{ color: "var(--color-text-muted)" }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "#f87171")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-text-muted)")}>×</button>
-      </div>
-      <div className="flex items-center justify-between mt-1.5 pl-5">
-        <span className="text-[10px]" style={{ color: source.roadmap ? "#10b981" : "var(--color-text-muted)", opacity: source.roadmap ? 1 : 0.5 }}>
-          {source.roadmap ? `${digestStatus ?? ""} ${i.roadmapReady}`.trim() : "—"}
-        </span>
-        {!source.roadmap && (
-          <button onClick={(e) => { e.stopPropagation(); onGenerate(); }} disabled={generating}
-            className="btn-gradient text-[10px] px-1.5 py-0.5 rounded-md disabled:opacity-40">
-            {generating ? "…" : "→"}
-          </button>
-        )}
       </div>
     </div>
   );

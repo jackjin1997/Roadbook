@@ -224,7 +224,7 @@ function HeroSection({ i, creating, onNew }: { i: ReturnType<typeof t>; creating
         transform: showSub ? "translateY(0)" : "translateY(10px)",
         transition: "opacity 0.6s ease, transform 0.6s ease",
       }}>
-        Every journey has its origin.
+        Every journey has its source.
       </p>
 
       {/* CTA */}
