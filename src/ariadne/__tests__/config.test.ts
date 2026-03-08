@@ -39,10 +39,11 @@ describe("setModelConfig / getModel", () => {
     expect(model._tag).toBe("anthropic");
   });
 
-  it("switches to Gemini provider", () => {
+  // Gemini routes through ChatOpenAI (proxy mode)
+  it("switches to Gemini provider — routes through ChatOpenAI", () => {
     setModelConfig({ provider: "gemini" });
     const model = getModel() as unknown as { _tag: string };
-    expect(model._tag).toBe("gemini");
+    expect(model._tag).toBe("openai");
   });
 
   it("applies custom modelName to OpenAI", () => {
@@ -61,11 +62,11 @@ describe("setModelConfig / getModel", () => {
     );
   });
 
-  it("applies custom modelName to Gemini", () => {
+  it("applies custom modelName to Gemini — routes through ChatOpenAI with modelName", () => {
     setModelConfig({ provider: "gemini", modelName: "gemini-1.5-pro" });
     getModel();
-    expect(ChatGoogleGenerativeAI).toHaveBeenCalledWith(
-      expect.objectContaining({ model: "gemini-1.5-pro" }),
+    expect(ChatOpenAI).toHaveBeenCalledWith(
+      expect.objectContaining({ modelName: "gemini-1.5-pro" }),
     );
   });
 
@@ -73,7 +74,7 @@ describe("setModelConfig / getModel", () => {
     setModelConfig({ provider: "gemini" });
     setModelConfig({ modelName: "gemini-1.5-pro" });
     const model = getModel() as unknown as { _tag: string };
-    expect(model._tag).toBe("gemini");
+    expect(model._tag).toBe("openai"); // gemini routes through OpenAI proxy
   });
 
   it("throws for unknown provider", () => {

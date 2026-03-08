@@ -3,6 +3,7 @@ import { parseInput } from "./nodes/parseInput.js";
 import { extractSkillTree } from "./nodes/extractSkillTree.js";
 import { researchSkills } from "./nodes/researchNode.js";
 import { generateRoadbookMarkdown } from "./nodes/generateRoadbook.js";
+import { mergeSkillTrees } from "./nodes/mergeSkillTrees.js";
 import type { SkillNode, InputType, ResearchResult } from "./types.js";
 
 const RoadbookAnnotation = Annotation.Root({
@@ -63,4 +64,43 @@ const graph = buildWorkflow();
 export async function generateRoadbook(input: string, language = "English"): Promise<string> {
   const result = await graph.invoke({ input, language });
   return result.roadbookMarkdown;
+}
+
+/**
+ * Generate a journey roadmap by merging skill trees from multiple snapshots.
+ * Each snapshot is processed in parallel through extractSkillTree,
+ * then merged and passed through research + generate.
+ */
+export async function generateJourneyRoadbook(
+  snapshots: { text: string; language: string }[],
+): Promise<string> {
+  if (snapshots.length === 0) throw new Error("No snapshots provided");
+
+  // Use the most common language, fallback to first
+  const language = snapshots[0].language;
+
+  // Parallel extractSkillTree for each snapshot
+  const skillTrees = await Promise.all(
+    snapshots.map((s) =>
+      extractSkillTree({ input: s.text, inputType: "article", language: s.language })
+        .then((r) => r.skillTree ?? [])
+    )
+  );
+
+  const merged = mergeSkillTrees(skillTrees);
+
+  // Run research + generate on merged tree via a minimal state
+  const state = {
+    input: snapshots.map((s) => s.text).join("\n\n---\n\n").slice(0, 2000),
+    inputType: "article" as InputType,
+    language,
+    title: "",
+    skillTree: merged,
+    researchResults: [] as ResearchResult[],
+    roadbookMarkdown: "",
+  };
+
+  const researched = await researchSkills(state);
+  const final = generateRoadbookMarkdown({ ...state, ...researched });
+  return (final as { roadbookMarkdown: string }).roadbookMarkdown;
 }

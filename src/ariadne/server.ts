@@ -12,7 +12,7 @@ import { createRequire } from "module";
 import mammoth from "mammoth";
 const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
-import { generateRoadbook } from "./workflow.js";
+import { generateRoadbook, generateJourneyRoadbook } from "./workflow.js";
 import { chat, chatStream, extractRoadbookUpdate, stripRoadbookBlock } from "./chat.js";
 import type { ChatMessage } from "./chat.js";
 import { setModelConfig, inferProvider } from "./config.js";
@@ -30,11 +30,30 @@ export interface Roadmap {
 export interface Source {
   id: string;
   type: "text" | "url" | "file";
+  origin: "external" | "research";
   reference: string;
   snapshot: string;
   ingestedAt: number;
   language: string;
   roadmap: Roadmap | null;
+  digestedSegmentIds: string[];
+}
+
+export interface Insight {
+  id: string;
+  content: string;
+  sourceRef?: { sourceId: string; segment?: string };
+  createdAt: number;
+}
+
+export interface ResearchTodo {
+  id: string;
+  topic: string;
+  description?: string;
+  status: "pending" | "in-progress" | "done";
+  linkedSkillNode?: string;
+  resultSourceId?: string;
+  createdAt: number;
 }
 
 export interface Workspace {
@@ -42,7 +61,10 @@ export interface Workspace {
   title: string;
   createdAt: number;
   updatedAt: number;
+  roadmap: Roadmap | null;
   sources: Source[];
+  insights: Insight[];
+  researchTodos: ResearchTodo[];
 }
 
 // ── Store ────────────────────────────────────────────────────────────────────
@@ -53,7 +75,19 @@ const STORE_FILE = join(DATA_DIR, "workspaces.json");
 function loadStore(): Workspace[] {
   try {
     if (!existsSync(STORE_FILE)) return [];
-    return JSON.parse(readFileSync(STORE_FILE, "utf-8"));
+    const raw = JSON.parse(readFileSync(STORE_FILE, "utf-8")) as Workspace[];
+    // Migrate old data: fill in missing fields
+    return raw.map((w) => ({
+      roadmap: null,
+      insights: [],
+      researchTodos: [],
+      ...w,
+      sources: w.sources.map((s) => ({
+        origin: "external" as const,
+        digestedSegmentIds: [],
+        ...s,
+      })),
+    }));
   } catch {
     return [];
   }
@@ -219,7 +253,10 @@ app.post("/workspaces", (req, res) => {
     title: title?.trim() || "New Journey",
     createdAt: Date.now(),
     updatedAt: Date.now(),
+    roadmap: null,
     sources: [],
+    insights: [],
+    researchTodos: [],
   };
   const all = loadStore();
   saveStore([workspace, ...all]);
@@ -261,11 +298,13 @@ app.post("/workspaces/:id/sources", (req, res) => {
   const source: Source = {
     id: uid(),
     type: "text",
+    origin: "external",
     reference: text.trim(),
     snapshot: text.trim(),
     ingestedAt: Date.now(),
     language: language ?? "English",
     roadmap: null,
+    digestedSegmentIds: [],
   };
   workspace.sources.push(source);
   updateWorkspace(workspace);
@@ -281,12 +320,13 @@ app.post("/workspaces/:id/sources/url", async (req, res) => {
   try {
     const snapshot = await fetchUrlSnapshot(url.trim());
     const source: Source = {
-      id: uid(), type: "url",
+      id: uid(), type: "url", origin: "external",
       reference: url.trim(),
       snapshot,
       ingestedAt: Date.now(),
       language: language ?? "English",
       roadmap: null,
+      digestedSegmentIds: [],
     };
     workspace.sources.push(source);
     updateWorkspace(workspace);
@@ -306,12 +346,13 @@ app.post("/workspaces/:id/sources/file", upload.single("file"), async (req, res)
   try {
     const snapshot = await extractFileText(req.file.buffer, req.file.mimetype, req.file.originalname);
     const source: Source = {
-      id: uid(), type: "file",
+      id: uid(), type: "file", origin: "external",
       reference: req.file.originalname,
       snapshot,
       ingestedAt: Date.now(),
       language,
       roadmap: null,
+      digestedSegmentIds: [],
     };
     workspace.sources.push(source);
     updateWorkspace(workspace);
@@ -374,6 +415,40 @@ app.post("/workspaces/:id/chat", async (req, res) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: message });
+  }
+});
+
+// ── Generate journey roadmap (multi-source merge) ─────────────────────────────
+
+app.post("/workspaces/:id/generate-journey", async (req, res) => {
+  const workspace = findWorkspace(req.params.id);
+  if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
+
+  const { sourceIds, model } = req.body as { sourceIds?: string[]; model?: string };
+  const selected = sourceIds?.length
+    ? workspace.sources.filter((s) => sourceIds.includes(s.id))
+    : workspace.sources;
+  if (selected.length === 0) { res.status(400).json({ error: "No sources selected" }); return; }
+
+  if (model) setModelConfig({ provider: inferProvider(model), modelName: model });
+
+  try {
+    const snapshots = selected.map((s) => ({ text: s.snapshot, language: s.language }));
+    const markdown = await generateJourneyRoadbook(snapshots);
+    workspace.roadmap = { id: workspace.roadmap?.id ?? uid(), markdown, generatedAt: Date.now() };
+
+    if (workspace.title === "New Journey") {
+      const titleMatch = markdown.match(/^#\s+(.+)$/m);
+      if (titleMatch) workspace.title = titleMatch[1].trim();
+    }
+
+    updateWorkspace(workspace);
+    res.json({ roadmap: workspace.roadmap, workspaceTitle: workspace.title });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
+  } finally {
+    setModelConfig({ provider: "gemini", modelName: "gemini-3.1-pro-low" });
   }
 });
 
