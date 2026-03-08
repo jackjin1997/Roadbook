@@ -143,8 +143,9 @@ export function MermaidDiagram({ code }: { code: string }) {
     return <pre className="mermaid-fallback"><code>{code}</code></pre>;
   }
 
-  const FADE = "rgba(255,255,255,0)";
-  const BG = "#ffffff";
+  // Section tint — matches mermaid node palette
+  const TINT = "#f5f3ff";
+  const TINT0 = "rgba(245,243,255,0)";
 
   return (
     <div
@@ -153,48 +154,55 @@ export function MermaidDiagram({ code }: { code: string }) {
       onDoubleClick={reset}
       style={{
         position: "relative",
-        height: 420,
+        height: 460,
         overflow: "hidden",
-        background: BG,
-        borderRadius: 16,
-        boxShadow: "0 0 0 1px rgba(114,96,220,0.1), 0 4px 24px rgba(114,96,220,0.07)",
+        background: TINT,
+        // Break out of prose px-10 (2.5rem) padding to span full content width
+        margin: "3rem -2.5rem",
+        borderTop: "1px solid rgba(114,96,220,0.1)",
+        borderBottom: "1px solid rgba(114,96,220,0.1)",
         cursor: "grab",
         userSelect: "none",
-        margin: "2rem 0",
       }}
     >
-      {/* Edge fade overlays */}
-      {[
-        { top: 0, left: 0, right: 0, height: 48, background: `linear-gradient(to bottom, ${BG}, ${FADE})` },
-        { bottom: 0, left: 0, right: 0, height: 48, background: `linear-gradient(to top, ${BG}, ${FADE})` },
-        { top: 0, bottom: 0, left: 0, width: 40, background: `linear-gradient(to right, ${BG}, ${FADE})` },
-        { top: 0, bottom: 0, right: 0, width: 40, background: `linear-gradient(to left, ${BG}, ${FADE})` },
-      ].map((s, i) => (
-        <div key={i} style={{ position: "absolute", pointerEvents: "none", zIndex: 5, ...s }} />
-      ))}
+      {/* Section label */}
+      <div style={{
+        position: "absolute", top: 0, left: 0, zIndex: 10,
+        padding: "10px 20px",
+        fontSize: 9, fontWeight: 700, letterSpacing: "0.14em",
+        textTransform: "uppercase", color: "rgba(114,96,220,0.35)",
+        pointerEvents: "none", lineHeight: 1,
+      }}>
+        路线概览
+      </div>
+
+      {/* Left / right edge fades */}
+      <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: 56,
+        background: `linear-gradient(to right, ${TINT}, ${TINT0})`,
+        pointerEvents: "none", zIndex: 5 }} />
+      <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: 56,
+        background: `linear-gradient(to left, ${TINT}, ${TINT0})`,
+        pointerEvents: "none", zIndex: 5 }} />
 
       {/* Control pill */}
-      <div
-        style={{
-          position: "absolute", bottom: 12, right: 12, zIndex: 10,
-          display: "flex", alignItems: "center",
-          background: "rgba(255,255,255,0.88)",
-          backdropFilter: "blur(8px)",
-          border: "1px solid rgba(114,96,220,0.13)",
-          borderRadius: 20,
-          boxShadow: "0 1px 8px rgba(0,0,0,0.07)",
-          padding: "2px 4px",
-          gap: 0,
-        }}
-      >
+      <div style={{
+        position: "absolute", bottom: 14, right: 16, zIndex: 10,
+        display: "flex", alignItems: "center",
+        background: "rgba(255,255,255,0.75)",
+        backdropFilter: "blur(10px)",
+        border: "1px solid rgba(114,96,220,0.12)",
+        borderRadius: 20,
+        boxShadow: "0 1px 6px rgba(0,0,0,0.06)",
+        padding: "2px 4px",
+      }}>
         <span style={{
           fontSize: 10, color: "var(--color-text-muted)",
           fontVariantNumeric: "tabular-nums", minWidth: 30,
-          textAlign: "center", padding: "0 4px", opacity: 0.65,
+          textAlign: "center", padding: "0 4px", opacity: 0.6,
         }}>
           {displayScale}%
         </span>
-        <div style={{ width: 1, height: 12, background: "rgba(114,96,220,0.15)", margin: "0 2px", flexShrink: 0 }} />
+        <div style={{ width: 1, height: 12, background: "rgba(114,96,220,0.15)", margin: "0 2px" }} />
         {[
           { label: "+", title: "放大", action: () => { const s = Math.min(tf.current.scale * 1.25, 6); tf.current = { ...tf.current, scale: s }; commit(); } },
           { label: "−", title: "缩小", action: () => { const s = Math.max(tf.current.scale * 0.8, 0.15); tf.current = { ...tf.current, scale: s }; commit(); } },
@@ -237,7 +245,7 @@ export function MermaidDiagram({ code }: { code: string }) {
           alignItems: "center",
           justifyContent: "center",
           transformOrigin: "center center",
-          padding: "32px 48px",
+          padding: "36px 56px",
         }}
       />
     </div>
