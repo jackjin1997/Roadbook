@@ -114,4 +114,9 @@
 - [x] v0.2 全部功能（workspace、source、chat SSE、文件摄入）
 - [x] 模型调度修复（proxy 路由、Anthropic BASE_URL）
 - [x] Journey 系统设计文档
-- [ ] T01 开始 →
+- [x] T01 · 数据模型扩展
+- [x] T02 · Journey Roadmap 生成 API
+- [x] T03 · 消化 API
+- [x] T04 · Insight API
+- [x] T05 · Research Todo API
+- [ ] T06 → 前端 types 同步

@@ -116,9 +116,68 @@ export function streamChatMessage(
   });
 }
 
-// Generate
+// Generate source roadmap
 export const generateRoadmap = (workspaceId: string, sourceId: string, model?: string) =>
   req<{ roadmap: Roadmap; workspaceTitle: string }>(
     `/workspaces/${workspaceId}/sources/${sourceId}/generate`,
     { method: "POST", body: JSON.stringify(model ? { model } : {}) },
+  );
+
+// Generate journey roadmap (multi-source merge)
+export const generateJourney = (workspaceId: string, sourceIds: string[], model?: string) =>
+  req<{ roadmap: Roadmap; workspaceTitle: string }>(
+    `/workspaces/${workspaceId}/generate-journey`,
+    { method: "POST", body: JSON.stringify({ sourceIds, ...(model ? { model } : {}) }) },
+  );
+
+// Digest selected segments into journey roadmap
+export const digestSource = (
+  workspaceId: string,
+  sourceId: string,
+  segmentIds: string[],
+  segments: string[],
+) =>
+  req<{ roadmap: Roadmap }>(
+    `/workspaces/${workspaceId}/digest`,
+    { method: "POST", body: JSON.stringify({ sourceId, segmentIds, segments }) },
+  );
+
+// Insights
+export const addInsight = (
+  workspaceId: string,
+  content: string,
+  sourceRef?: import("./types").Insight["sourceRef"],
+) =>
+  req<import("./types").Insight>(
+    `/workspaces/${workspaceId}/insights`,
+    { method: "POST", body: JSON.stringify({ content, sourceRef }) },
+  );
+
+export const deleteInsight = (workspaceId: string, insightId: string) =>
+  req<{ ok: boolean }>(`/workspaces/${workspaceId}/insights/${insightId}`, { method: "DELETE" });
+
+// Research todos
+export const addResearchTodo = (workspaceId: string, topic: string, description?: string) =>
+  req<import("./types").ResearchTodo>(
+    `/workspaces/${workspaceId}/research-todos`,
+    { method: "POST", body: JSON.stringify({ topic, description }) },
+  );
+
+export const updateResearchTodo = (
+  workspaceId: string,
+  todoId: string,
+  patch: { status?: import("./types").ResearchTodo["status"]; description?: string },
+) =>
+  req<import("./types").ResearchTodo>(
+    `/workspaces/${workspaceId}/research-todos/${todoId}`,
+    { method: "PATCH", body: JSON.stringify(patch) },
+  );
+
+export const deleteResearchTodo = (workspaceId: string, todoId: string) =>
+  req<{ ok: boolean }>(`/workspaces/${workspaceId}/research-todos/${todoId}`, { method: "DELETE" });
+
+export const runResearchTodo = (workspaceId: string, todoId: string) =>
+  req<{ todo: import("./types").ResearchTodo; source: import("./types").Source }>(
+    `/workspaces/${workspaceId}/research-todos/${todoId}/run`,
+    { method: "POST", body: JSON.stringify({}) },
   );
