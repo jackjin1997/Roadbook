@@ -79,24 +79,32 @@ export function MermaidDiagram({ code }: { code: string }) {
     if (!el) return;
 
     const onWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey) return;
       e.preventDefault();
 
-      const rect = el.getBoundingClientRect();
-      // Mouse position relative to container center
-      const ox = e.clientX - rect.left - rect.width / 2;
-      const oy = e.clientY - rect.top - rect.height / 2;
+      if (e.ctrlKey) {
+        // Pinch-to-zoom — zoom toward cursor
+        const rect = el.getBoundingClientRect();
+        const ox = e.clientX - rect.left - rect.width / 2;
+        const oy = e.clientY - rect.top - rect.height / 2;
 
-      const factor = e.deltaY < 0 ? 1.1 : 0.92;
-      const oldScale = tf.current.scale;
-      const newScale = Math.min(Math.max(oldScale * factor, 0.15), 6);
-      const ratio = newScale / oldScale;
+        const factor = e.deltaY < 0 ? 1.1 : 0.92;
+        const oldScale = tf.current.scale;
+        const newScale = Math.min(Math.max(oldScale * factor, 0.15), 6);
+        const ratio = newScale / oldScale;
 
-      tf.current = {
-        scale: newScale,
-        x: ox - ratio * (ox - tf.current.x),
-        y: oy - ratio * (oy - tf.current.y),
-      };
+        tf.current = {
+          scale: newScale,
+          x: ox - ratio * (ox - tf.current.x),
+          y: oy - ratio * (oy - tf.current.y),
+        };
+      } else {
+        // Two-finger scroll — pan
+        tf.current = {
+          ...tf.current,
+          x: tf.current.x - e.deltaX,
+          y: tf.current.y - e.deltaY,
+        };
+      }
       commit();
     };
 
@@ -229,7 +237,6 @@ export function MermaidDiagram({ code }: { code: string }) {
           alignItems: "center",
           justifyContent: "center",
           transformOrigin: "center center",
-          willChange: "transform",
           padding: "32px 48px",
         }}
       />
