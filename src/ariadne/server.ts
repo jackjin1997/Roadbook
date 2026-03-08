@@ -13,7 +13,7 @@ import mammoth from "mammoth";
 const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
 import { generateRoadbook } from "./workflow.js";
-import { chat } from "./chat.js";
+import { chat, chatStream, extractRoadbookUpdate, stripRoadbookBlock } from "./chat.js";
 import type { ChatMessage } from "./chat.js";
 import { setModelConfig, inferProvider } from "./config.js";
 import type { ModelProvider } from "./config.js";
@@ -374,6 +374,55 @@ app.post("/workspaces/:id/chat", async (req, res) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: message });
+  }
+});
+
+// ── Chat SSE stream ───────────────────────────────────────────────────────────
+
+app.post("/workspaces/:id/chat/stream", async (req, res) => {
+  const workspace = findWorkspace(req.params.id as string);
+  if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
+
+  const { messages, sourceId } = req.body as { messages: ChatMessage[]; sourceId?: string };
+  if (!messages?.length) { res.status(400).json({ error: "messages required" }); return; }
+
+  const source = sourceId ? workspace.sources.find((s) => s.id === sourceId) : null;
+  const userMessage = messages[messages.length - 1].content;
+  const history = messages.slice(0, -1);
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  const send = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
+  try {
+    let full = "";
+    for await (const chunk of chatStream({
+      workspaceTitle: workspace.title,
+      sourceSnapshot: source?.snapshot ?? null,
+      roadbookMarkdown: source?.roadmap?.markdown ?? null,
+      history,
+      userMessage,
+    })) {
+      full += chunk;
+      send({ chunk });
+    }
+
+    const roadbookUpdate = extractRoadbookUpdate(full);
+    const reply = roadbookUpdate ? stripRoadbookBlock(full) : full;
+
+    if (roadbookUpdate && source) {
+      source.roadmap = { id: source.roadmap?.id ?? uid(), markdown: roadbookUpdate, generatedAt: Date.now() };
+      updateWorkspace(workspace);
+    }
+
+    send({ done: true, reply, roadbookUpdated: !!roadbookUpdate, roadmap: source?.roadmap ?? null });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    send({ error: message });
+  } finally {
+    res.end();
   }
 });
 

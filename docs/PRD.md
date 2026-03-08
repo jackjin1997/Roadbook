@@ -69,27 +69,70 @@ npx ariadne "Node.js 高级后端工程师 JD" --output roadbook.md
 ```
 Ariadne 返回结构化 JSON 或 Markdown，agent 可将其作为上下文继续处理，无需打开 GUI。
 
-### 核心数据模型
+### 核心心智模型
+
+> **Journey（旅程）** 是对一个知识领域的**持续深耕**，不是一次性生成的报告。
 
 ```
-Workspace（域/目标，如"AI Agent 面试备战"）
-├── Source（输入源，1:1 对应一份路书）
-│   ├── type: text | file | url | video
-│   ├── reference: 原始引用（链接/文件名/原文）
-│   └── snapshot: 摄入时提取的文本快照（ingested_at）
-│       └── Roadmap（一等公民，基于快照生成）
-│           ├── skillTree: 技能树
-│           ├── markdown: 路书正文
-│           └── generated_at
-├── Source → Roadmap
-└── [可选] Merged Roadmap（从选中 Roadmap 合并派生）
+外部材料 (Source)          自己产出
+     │                        │
+     ▼                        ▼
+Source Roadmap          Insight List
+（自动生成概览）         （想法、感悟、笔记）
+     │                        │
+     │    选择性消化            │
+     └──────────┬─────────────┘
+                ▼
+         Journey Roadmap
+        （持续演进的认知地图）
+                ▲
+                │ 调研结果回写
+        Research Todolist
+        （具体的待调研问题 → 自动生成 Research Source）
+```
+
+- **Source roadmap**：单篇 source 的结构化概览，自动生成，局部视角
+- **Journey roadmap**：workspace 级知识地图，通过选择性消化逐步构建，代表"我真正消化了的认知"
+- **Insight**：独立的想法/感悟列表，可选填溯源但不强制
+- **Research Todo**：具体的待调研问题，完成后自动生成 Research Source（标记 `origin: "research"`）
+
+> 详细技术方案见 `docs/journey-system-design.md`
+
+### 核心数据模型
+
+```ts
+interface Workspace {
+  id: string
+  title: string
+  roadmap: Roadmap | null          // journey 级路书（新增）
+  roadmapSourceIds: string[]       // 生成时使用的 source ids，溯源用（新增）
+  sources: Source[]
+  createdAt: number
+  updatedAt: number
+}
+
+interface Source {
+  id: string
+  type: "text" | "url" | "file"
+  reference: string                // 原始引用（链接/文件名/原文摘要）
+  snapshot: string                 // 摄入时提取的文本快照
+  language: string
+  roadmap: Roadmap | null          // source 级局部路书
+  ingestedAt: number
+}
+
+interface Roadmap {
+  id: string
+  markdown: string
+  generatedAt: number
+}
 ```
 
 **两个核心动作**（无需版本系统）：
-- **重新摄入**（Source 层）：更新内容快照，适用于 URL 内容变更、重新上传文件等
-- **重新生成**（Roadmap 层）：基于当前快照重跑 Ariadne，覆盖或保留旧路书
+- **重新摄入**（Source 层）：更新 snapshot，适用于 URL 内容变更、重新上传文件
+- **重新生成**（Roadmap 层）：基于当前 snapshot 重跑 Ariadne，覆盖旧路书
 
-所有 Source 类型在摄入后统一变为文本快照，Roadmap 只感知文本，不感知 Source 类型。
+所有 Source 类型摄入后统一转为文本 snapshot，Roadmap 只感知文本。
 
 ### 核心数据流
 
@@ -107,48 +150,62 @@ flowchart LR
 
 ## 4. 功能需求
 
-### MVP1（v0.1）- 核心路径打通 ✅
+### v0.1 - 核心路径 ✅
 
-- **F1 - 文本输入**：支持粘贴 JD / 文章 / 自由文本，提供简单的输入界面
-- **F2 - 技能树提取**：LLM 从输入文本中提取结构化技能树（Skill -> Sub-skill -> Related Concepts）
-- **F3 - 联网调研**：对每个技能节点通过 Tavily 搜索相关教程和资源
-- **F4 - 路书生成**：输出一份 Markdown 文档，包含 Mermaid 脑图、资源链接、优先级建议
-- **F5 - 多模型支持**：支持 OpenAI / Anthropic / Gemini 模型切换
-- **F6 - 本地应用**：Express + React，数据本地存储
-- **F12 - 多语言输出**：用户可配置路书语言，UI 同步切换
+- **F1** 文本输入（JD / 文章 / 自由文本）
+- **F2** 技能树提取（LLM 结构化提取，JSON Schema 约束）
+- **F3** 联网调研（Tavily，Top-5 技能点，8s 超时降级）
+- **F4** 路书生成（Markdown + Mermaid 脑图）
+- **F5** 多模型支持（OpenAI proxy / Anthropic / Gemini，按 provider 路由）
+- **F6** 本地应用（Express + React，JSON 文件存储）
+- **F12** 多语言输出（路书语言 + UI 语言联动）
 
-### MVP2（v0.2）- 工作区范式重构
+### v0.2 - 工作区范式 ✅
 
-核心变化：引入 Workspace > Source > Roadmap 三层模型，Roadmap 成为一等公民。
+- **F13** Journey 首页：卡片画廊，按最近更新排序
+- **F14** Workspace 视图：三栏布局（Source 列表 / Roadmap / Chat）
+- **F15** Source 管理：添加（text / url / file）、删除
+- **F16** Roadmap 管理：生成、重新生成、查看生成时间
+- **F8** Chat 流式输出（SSE）：逐 token 打印，支持 roadbook 内联更新
+- **F17** URL 抓取 + 文件解析（PDF / DOCX / TXT / 图片 OCR）
 
-- **F13 - 工作区首页**：类 NotebookLM 的卡片画廊
-  - 每张卡片：工作区标题、Source 数量、最近更新时间
-  - 「+ New」入口突出显示
-  - 按最近访问排序
-- **F14 - 工作区视图**：独立页面，三栏布局
-  - 左栏：Source 列表（支持添加多个 Source，类型：text / file / url）
-  - 中栏：选中 Source 对应的 Roadmap（Markdown 渲染）
-  - 右栏（未来）：Merged Roadmap
-- **F15 - Source 管理**
-  - 添加 Source（文本输入为 MVP 优先）
-  - 重新摄入（更新快照）→ 可触发重新生成
-  - 删除 Source（级联删除对应 Roadmap）
-- **F16 - Roadmap 管理**
-  - 重新生成（基于当前快照重跑 Ariadne）
-  - 查看生成时间（隐式版本信息）
-- **F8 - 流式输出**：实时展示生成进度
+### v0.3 - Journey 系统（规划中）
 
-### MVP3（v0.3）- 深度能力
+> 详细技术方案见 `docs/journey-system-design.md`
 
-- **F17 - Merged Roadmap**：选择工作区内多个 Roadmap 合并，LLM 做语义去重 + 优先级聚合
-- **F7 - Obsidian 双链输出**：生成结果支持 `[[双链]]` 格式
-- **F11 - CLI 完整支持**：`--format json`、stdin、语义化 exit code
-- **F10 - 歧义消解交互**：多义概念时交互式选择上下文
+- **F18 - 选择性消化**
+  - Source roadmap 支持 segment/node 级别勾选
+  - 「消化进 Journey」触发增量 patch（不重新生成全部，LLM 只处理选中部分）
+  - Source 展示消化状态：未消化 / 部分消化 / 全部消化
+  - 消化后 journey roadmap 在主面板 Journey tab 展示
 
-### Future（v0.4+）
+- **F19 - Insight List**
+  - 独立的想法/感悟输入区，随时可记
+  - 阅读 source roadmap 时可选中文字 → 「保存为 Insight」（自动填入溯源）
+  - Insight 作为 chat 全局上下文的一部分
 
-- URL / 文件 / 视频 Source 类型支持
-- Obsidian 插件形态
+- **F20 - Research Todolist**
+  - 具体的、有明确目标的调研任务
+  - 触发 deep research → 自动生成 `origin: "research"` 的 Source
+  - Research source 可被消化进 journey roadmap
+  - UI 区分 external source（用户添加）vs research source（调研产出）
+
+- **F21 - 多 Source 上下文聊天**
+  - Chat 支持选中多个 source（含 research source）+ insight list 作为上下文
+  - 渐进式 context 加载（60k chars 预算，按优先级：journey roadmap → source roadmaps → insights → snapshots）
+
+### v0.4 - RAG 分块（规划中）
+
+- Source 摄入时分块（~500 tokens，overlap ~50）
+- 向量化存储（`MemoryVectorStore`，zero-dependency）
+- Chat 时 query → embed → top-k chunks 替代全文注入
+- 优先对超长 source（>10k chars）启用
+
+### Future
+
+- Obsidian 双链输出（`[[双链]]` 格式）
+- CLI 完整支持（`--format json`、stdin、语义化 exit code）
+- 歧义消解交互
 - 社区分享工作区模板
 
 ---
@@ -252,28 +309,29 @@ interface SkillNode {
 
 ## 6. 里程碑规划
 
-### M0 - 基础骨架 ✅
-- 初始化项目，LangGraph.js 工作流骨架，LangSmith tracing 接入
+### M0 ✅ 基础骨架
+LangGraph 工作流骨架，LangSmith tracing 接入，CLI 可用
 
-### M1 - MVP1 功能闭环 ✅
-- 完整 3 阶段工作流、Tavily 搜索、Mermaid 脑图、多模型切换、多语言输出
-- 基础 UI（输入 + Markdown 渲染 + 历史侧边栏）
-- CLI 支持，后端历史持久化
+### M1 ✅ v0.1 功能闭环
+完整 3 阶段工作流（extract → research → generate）、Tavily、Mermaid、多模型、多语言
 
-### M2 - 工作区范式重构（进行中）
-- 工作区首页：卡片画廊 + 新建入口（参考 NotebookLM 布局）
-- 工作区独立页面（路由切换）
-- 工作区数据模型升级（backend history → workspace store）
-- 工作区重命名 / 删除管理
+### M2 ✅ v0.2 工作区范式
+Journey 首页卡片画廊、三栏 workspace 视图、Source 管理、Chat SSE 流式、文件/URL 摄入
+模型调度修复（proxy 模式路由、Anthropic ANTHROPIC_BASE_URL、默认模型 gemini-3.1-pro-low）
 
-### M3 - 质量打磨
-- LangSmith evaluation pipeline
-- 流式输出
-- Prompt 调优
+### M3 🔲 v0.3 Journey 系统
+- [ ] 数据模型：workspace 加 `insights[]`、`researchTodos[]`；source 加 `origin`、`digestedSegmentIds`
+- [ ] 消化 API：`POST /workspaces/:id/digest`（选中 segments → 增量 patch journey roadmap）
+- [ ] Journey tab UI（主面板）
+- [ ] Insight 输入 + 列表
+- [ ] Research todo 增删改 + deep research 触发
+- [ ] 多 source chat（`sourceIds[]` + 渐进式 context + insights）
 
-### M4 - 深度能力
-- Obsidian 双链输出
-- 工作区内增量调研
+### M4 🔲 v0.4 RAG 分块
+向量化存储，query → embed → top-k chunks 上下文注入
+
+### M5 🔲 深度能力
+Obsidian 双链、CLI 完整支持、歧义消解
 
 ---
 

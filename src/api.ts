@@ -77,6 +77,45 @@ export const sendChatMessage = (
     { method: "POST", body: JSON.stringify({ messages, sourceId }) },
   );
 
+export function streamChatMessage(
+  workspaceId: string,
+  messages: ChatMessage[],
+  sourceId: string | undefined,
+  onChunk: (chunk: string) => void,
+): Promise<{ reply: string; roadbookUpdated: boolean; roadmap: import("./types").Roadmap | null }> {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const res = await fetch(`${API}/workspaces/${workspaceId}/chat/stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages, sourceId }),
+      });
+      if (!res.ok || !res.body) { reject(new Error(`HTTP ${res.status}`)); return; }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop()!;
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = JSON.parse(line.slice(6));
+          if (data.error) { reject(new Error(data.error)); return; }
+          if (data.chunk) onChunk(data.chunk);
+          if (data.done) resolve({ reply: data.reply, roadbookUpdated: data.roadbookUpdated, roadmap: data.roadmap });
+        }
+      }
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
 // Generate
 export const generateRoadmap = (workspaceId: string, sourceId: string, model?: string) =>
   req<{ roadmap: Roadmap; workspaceTitle: string }>(

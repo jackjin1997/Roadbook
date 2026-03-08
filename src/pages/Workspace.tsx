@@ -11,7 +11,7 @@ import {
   deleteSource,
   generateRoadmap,
   listModels,
-  sendChatMessage,
+  streamChatMessage,
 } from "../api";
 import type { ChatMessage } from "../api";
 import type { Workspace, Source } from "../types";
@@ -151,17 +151,28 @@ export default function WorkspacePage() {
     if (!workspace || !chatInput.trim() || chatLoading) return;
     const userMsg: ChatMessage = { role: "user", content: chatInput.trim() };
     const next = [...chatMessages, userMsg];
-    setChatMessages(next);
+    setChatMessages([...next, { role: "assistant", content: "" }]);
     setChatInput("");
     setChatLoading(true);
     try {
-      const res = await sendChatMessage(workspace.id, next, selectedSourceId ?? undefined);
-      const aiMsg: ChatMessage = { role: "assistant", content: res.reply };
-      setChatMessages([...next, aiMsg]);
-      if (res.roadbookUpdated && res.roadmap && selectedSourceId) {
+      const result = await streamChatMessage(
+        workspace.id,
+        next,
+        selectedSourceId ?? undefined,
+        (chunk) => {
+          setChatMessages((msgs) => {
+            const last = msgs[msgs.length - 1];
+            if (last?.role !== "assistant") return msgs;
+            return [...msgs.slice(0, -1), { role: "assistant", content: last.content + chunk }];
+          });
+        },
+      );
+      // Replace streaming content with final processed reply (roadbook tags stripped)
+      setChatMessages((msgs) => [...msgs.slice(0, -1), { role: "assistant", content: result.reply }]);
+      if (result.roadbookUpdated && result.roadmap && selectedSourceId) {
         setWorkspace((w) => w ? {
           ...w,
-          sources: w.sources.map((s) => s.id === selectedSourceId ? { ...s, roadmap: res.roadmap } : s),
+          sources: w.sources.map((s) => s.id === selectedSourceId ? { ...s, roadmap: result.roadmap } : s),
         } : w);
       }
     } finally {
@@ -426,13 +437,6 @@ export default function WorkspacePage() {
                 </div>
               </div>
             ))}
-            {chatLoading && (
-              <div className="flex justify-start">
-                <div className="text-xs px-3 py-2 rounded-xl" style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-text-muted)" }}>
-                  <span className="animate-pulse">···</span>
-                </div>
-              </div>
-            )}
             <div ref={chatBottomRef} />
           </div>
           <div className="p-3 border-t shrink-0" style={{ borderColor: "var(--color-border)" }}>

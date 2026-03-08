@@ -73,3 +73,13 @@ export async function chat(opts: BuildOptions): Promise<{
   const reply = roadbookUpdate ? stripRoadbookBlock(raw) : raw;
   return { reply, roadbookUpdate };
 }
+
+export async function* chatStream(opts: BuildOptions): AsyncGenerator<string> {
+  const messages = buildChatMessages(opts);
+  const model = getModel();
+  const stream = await model.stream(messages);
+  for await (const chunk of stream) {
+    const text = typeof chunk.content === "string" ? chunk.content : "";
+    if (text) yield text;
+  }
+}
