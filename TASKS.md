@@ -119,4 +119,10 @@
 - [x] T03 · 消化 API
 - [x] T04 · Insight API
 - [x] T05 · Research Todo API
-- [ ] T06 → 前端 types 同步
+- [x] T06 · 前端 types 同步
+- [x] T07 · api.ts 新接口
+- [x] T08 · Journey Tab + 多选 source + Generate Journey
+- [x] T09 · 消化 UI（markdown 分段 checkbox，已消化高亮/置灰）
+- [x] T10 · Insight Panel
+- [x] T11 · Research Todo Panel（Run → 🔬 source）
+- [ ] T12 → 多 source 上下文 chat
