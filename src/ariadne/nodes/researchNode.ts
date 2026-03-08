@@ -20,33 +20,40 @@ export async function researchSkills(
   }
 
   const tavily = new TavilySearchAPIWrapper({});
-  const results: ResearchResult[] = [];
 
   const priorityOrder = { high: 0, medium: 1, low: 2 } as const;
   const prioritized = [...state.skillTree]
     .sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority])
-    .slice(0, 8);
+    .slice(0, 5); // reduced from 8 to limit total time
 
-  for (const skill of prioritized) {
-    const query = `${skill.name} tutorial best practices learning resources`;
-    try {
-      const response = await tavily.rawResults({
-        query,
-        max_results: 3,
-      });
-      results.push({
+  const TIMEOUT_MS = 8000;
+
+  const settled = await Promise.allSettled(
+    prioritized.map(async (skill) => {
+      const query = `${skill.name} tutorial best practices learning resources`;
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), TIMEOUT_MS)
+      );
+      const response = await Promise.race([
+        tavily.rawResults({ query, max_results: 3 }),
+        timeoutPromise,
+      ]);
+      return {
         skillName: skill.name,
         resources: response.results.slice(0, 3).map((r) => ({
           title: r.title,
           url: r.url,
           snippet: r.content.slice(0, 200),
         })),
-      });
-    } catch (err) {
-      console.warn(`Research failed for "${skill.name}":`, err);
-      results.push({ skillName: skill.name, resources: [] });
-    }
-  }
+      };
+    })
+  );
+
+  const results: ResearchResult[] = settled.map((r, i) => {
+    if (r.status === "fulfilled") return r.value;
+    console.warn(`Research failed for "${prioritized[i]!.name}":`, r.reason);
+    return { skillName: prioritized[i]!.name, resources: [] };
+  });
 
   return { researchResults: results };
 }

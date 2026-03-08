@@ -81,5 +81,5 @@ export const sendChatMessage = (
 export const generateRoadmap = (workspaceId: string, sourceId: string, model?: string) =>
   req<{ roadmap: Roadmap; workspaceTitle: string }>(
     `/workspaces/${workspaceId}/sources/${sourceId}/generate`,
-    { method: "POST", body: JSON.stringify(model ? { provider: "openai", model } : {}) },
+    { method: "POST", body: JSON.stringify(model ? { model } : {}) },
   );

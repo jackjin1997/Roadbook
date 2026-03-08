@@ -45,7 +45,7 @@ export async function extractSkillTree(
 ): Promise<Partial<RoadbookState>> {
   const model = getModel();
   const structured = model.withStructuredOutput(SkillTreeOutputSchema, {
-    method: "jsonMode",
+    method: "functionCalling",
   });
 
   const result = await structured.invoke([

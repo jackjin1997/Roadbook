@@ -15,7 +15,7 @@ const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string
 import { generateRoadbook } from "./workflow.js";
 import { chat } from "./chat.js";
 import type { ChatMessage } from "./chat.js";
-import { setModelConfig } from "./config.js";
+import { setModelConfig, inferProvider } from "./config.js";
 import type { ModelProvider } from "./config.js";
 import { logTracingStatus } from "./tracing.js";
 
@@ -160,7 +160,35 @@ app.get("/models", async (_req, res) => {
     });
     if (!r.ok) { res.json({ models: [] }); return; }
     const data = await r.json() as { data: { id: string }[] };
-    const models = data.data.map((m) => m.id).sort();
+    const all = data.data.map((m) => m.id);
+
+    // Priority-ordered curated list — first match wins per slot
+    const CURATED = [
+      /claude-sonnet-4-6/,
+      /claude-sonnet-4-5/,
+      /claude-opus-4/,
+      /claude-haiku-4-5/,
+      /claude-3-7-sonnet/,
+      /claude-3-5-sonnet/,
+      /claude-3-5-haiku/,
+      /^gpt-4o$/,
+      /^gpt-4o-mini$/,
+      /^gemini-2\.0-flash/,
+    ];
+
+    const curated: string[] = [];
+    for (const pattern of CURATED) {
+      const match = all.find((m) => pattern.test(m));
+      if (match && !curated.includes(match)) curated.push(match);
+    }
+    const models = curated.length > 0 ? curated : all.slice(0, 8);
+
+    // Append native models (not via proxy) if not already listed
+    const NATIVE = ["gemini-3.1-pro-low", "gemini-2.0-flash"];
+    for (const m of NATIVE) {
+      if (!models.includes(m)) models.push(m);
+    }
+
     res.json({ models });
   } catch {
     res.json({ models: [] });
@@ -357,8 +385,8 @@ app.post("/workspaces/:id/sources/:sourceId/generate", async (req, res) => {
   const source = workspace.sources.find((s) => s.id === req.params.sourceId);
   if (!source) { res.status(404).json({ error: "Source not found" }); return; }
 
-  const { provider, model } = req.body as { provider?: ModelProvider; model?: string };
-  if (provider || model) setModelConfig({ provider, modelName: model });
+  const { model } = req.body as { provider?: ModelProvider; model?: string };
+  if (model) setModelConfig({ provider: inferProvider(model), modelName: model });
 
   try {
     const markdown = await generateRoadbook(source.snapshot, source.language);
@@ -376,6 +404,9 @@ app.post("/workspaces/:id/sources/:sourceId/generate", async (req, res) => {
     const message = err instanceof Error ? err.message : String(err);
     console.error("Generation failed:", message);
     res.status(500).json({ error: message });
+  } finally {
+    // Reset to default so one request's model choice doesn't leak into subsequent requests
+    setModelConfig({ provider: "gemini", modelName: "gemini-3.1-pro-low" });
   }
 });
 

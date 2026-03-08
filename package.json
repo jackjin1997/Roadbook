@@ -6,7 +6,8 @@
   "type": "module",
   "packageManager": "pnpm@10.29.1",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently -n client,server -c cyan,magenta \"vite\" \"tsx watch src/ariadne/server.ts\"",
+    "dev:client": "vite",
     "dev:server": "tsx watch src/ariadne/server.ts",
     "build": "tsc --project tsconfig.json --noEmit && tsc --project tsconfig.ariadne.json --noEmit && vite build",
     "preview": "vite preview",
@@ -56,6 +57,7 @@
     "@types/react-dom": "^19.2.3",
     "@types/react-router-dom": "^5.3.3",
     "@vitejs/plugin-react": "^5.1.4",
+    "concurrently": "^9.2.1",
     "tailwindcss": "^4.2.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",

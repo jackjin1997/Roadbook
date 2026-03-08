@@ -65,7 +65,7 @@ export default function WorkspacePage() {
     });
     listModels().then(({ models }) => {
       setModels(models);
-      if (models.length > 0) setSelectedModel(models.find(m => m.includes("sonnet")) ?? models[0]);
+      if (models.length > 0) setSelectedModel(models.find(m => m === "gemini-3.1-pro-low") ?? models[0]);
     });
   }, [id]);
 
