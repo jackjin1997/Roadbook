@@ -125,4 +125,4 @@
 - [x] T09 · 消化 UI（markdown 分段 checkbox，已消化高亮/置灰）
 - [x] T10 · Insight Panel
 - [x] T11 · Research Todo Panel（Run → 🔬 source）
-- [ ] T12 → 多 source 上下文 chat
+- [x] T12 · 多 source 上下文 chat（backend + 上下文来源 UI）

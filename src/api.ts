@@ -80,7 +80,7 @@ export const sendChatMessage = (
 export function streamChatMessage(
   workspaceId: string,
   messages: ChatMessage[],
-  sourceId: string | undefined,
+  sourceIds: string[] | undefined,
   onChunk: (chunk: string) => void,
 ): Promise<{ reply: string; roadbookUpdated: boolean; roadmap: import("./types").Roadmap | null }> {
   return new Promise(async (resolve, reject) => {
@@ -88,7 +88,7 @@ export function streamChatMessage(
       const res = await fetch(`${API}/workspaces/${workspaceId}/chat/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages, sourceId }),
+        body: JSON.stringify({ messages, sourceIds }),
       });
       if (!res.ok || !res.body) { reject(new Error(`HTTP ${res.status}`)); return; }
 

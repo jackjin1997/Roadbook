@@ -3,72 +3,81 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // ── Mock LLM ──────────────────────────────────────────────────────────────────
 const mockInvoke = vi.fn();
 vi.mock("@langchain/openai", () => ({
-  ChatOpenAI: vi.fn(function () {
-    return { invoke: mockInvoke };
-  }),
+  ChatOpenAI: vi.fn(function () { return { invoke: mockInvoke }; }),
 }));
 vi.mock("@langchain/anthropic", () => ({
-  ChatAnthropic: vi.fn(function () {
-    return { invoke: mockInvoke };
-  }),
+  ChatAnthropic: vi.fn(function () { return { invoke: mockInvoke }; }),
 }));
 vi.mock("@langchain/google-genai", () => ({
-  ChatGoogleGenerativeAI: vi.fn(function () {
-    return { invoke: mockInvoke };
-  }),
+  ChatGoogleGenerativeAI: vi.fn(function () { return { invoke: mockInvoke }; }),
 }));
 
-import { buildChatMessages, extractRoadbookUpdate } from "../chat.js";
+import { buildChatMessages, extractRoadbookUpdate, stripRoadbookBlock } from "../chat.js";
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockInvoke.mockResolvedValue({ content: "Here is my response." });
 });
 
+const baseOpts = {
+  workspaceTitle: "AI 面试备战",
+  journeyRoadmap: null,
+  sources: [],
+  insights: [],
+  history: [],
+  userMessage: "你好",
+};
+
 // ── buildChatMessages ─────────────────────────────────────────────────────────
 
 describe("buildChatMessages", () => {
-  it("includes a system prompt with workspace title", () => {
-    const msgs = buildChatMessages({
-      workspaceTitle: "AI 面试备战",
-      sourceSnapshot: null,
-      roadbookMarkdown: null,
-      history: [],
-      userMessage: "你好",
-    });
+  it("includes workspace title in system prompt", () => {
+    const msgs = buildChatMessages(baseOpts);
     const system = msgs.find((m) => m._getType() === "system");
     expect(system?.content).toContain("AI 面试备战");
   });
 
-  it("includes source snapshot in system prompt when provided", () => {
-    const msgs = buildChatMessages({
-      workspaceTitle: "test",
-      sourceSnapshot: "JD content here",
-      roadbookMarkdown: null,
-      history: [],
-      userMessage: "hi",
-    });
+  it("includes journey roadmap when provided", () => {
+    const msgs = buildChatMessages({ ...baseOpts, journeyRoadmap: "# Journey\n\n- Node.js" });
     const system = msgs.find((m) => m._getType() === "system");
-    expect(system?.content).toContain("JD content here");
+    expect(system?.content).toContain("Journey Roadmap");
+    expect(system?.content).toContain("Node.js");
   });
 
-  it("includes roadbook in system prompt when provided", () => {
+  it("includes source roadmap and snapshot", () => {
     const msgs = buildChatMessages({
-      workspaceTitle: "test",
-      sourceSnapshot: null,
-      roadbookMarkdown: "# My Roadbook\n\n- Step 1",
-      history: [],
-      userMessage: "hi",
+      ...baseOpts,
+      sources: [{ reference: "jd.txt", snapshot: "Senior Engineer JD", roadmapMarkdown: "# Roadmap\n\n- React" }],
     });
     const system = msgs.find((m) => m._getType() === "system");
-    expect(system?.content).toContain("# My Roadbook");
+    expect(system?.content).toContain("Roadmap: jd.txt");
+    expect(system?.content).toContain("React");
+    expect(system?.content).toContain("Senior Engineer JD");
+  });
+
+  it("includes insights", () => {
+    const msgs = buildChatMessages({ ...baseOpts, insights: ["GraphQL is important for this role"] });
+    const system = msgs.find((m) => m._getType() === "system");
+    expect(system?.content).toContain("Insights");
+    expect(system?.content).toContain("GraphQL is important for this role");
+  });
+
+  it("multi-source: includes all source roadmaps", () => {
+    const msgs = buildChatMessages({
+      ...baseOpts,
+      sources: [
+        { reference: "src-a", snapshot: "snapshot a", roadmapMarkdown: "# Roadmap A" },
+        { reference: "src-b", snapshot: "snapshot b", roadmapMarkdown: "# Roadmap B" },
+      ],
+    });
+    const system = msgs.find((m) => m._getType() === "system");
+    expect(system?.content).toContain("Roadmap: src-a");
+    expect(system?.content).toContain("Roadmap: src-b");
   });
 
   it("appends conversation history", () => {
     const msgs = buildChatMessages({
-      workspaceTitle: "test",
-      sourceSnapshot: null,
-      roadbookMarkdown: null,
+      ...baseOpts,
       history: [
         { role: "user", content: "first question" },
         { role: "assistant", content: "first answer" },
@@ -81,17 +90,25 @@ describe("buildChatMessages", () => {
     expect(contents).toContain("follow up");
   });
 
-  it("ends with the user message", () => {
-    const msgs = buildChatMessages({
-      workspaceTitle: "test",
-      sourceSnapshot: null,
-      roadbookMarkdown: null,
-      history: [],
-      userMessage: "update the roadbook",
-    });
+  it("ends with the user message as human message", () => {
+    const msgs = buildChatMessages({ ...baseOpts, userMessage: "update the roadbook" });
     const last = msgs[msgs.length - 1];
     expect(last._getType()).toBe("human");
     expect(last.content).toBe("update the roadbook");
+  });
+
+  it("respects budget: does not exceed 60k chars in system prompt", () => {
+    const bigSnapshot = "x".repeat(30_000);
+    const msgs = buildChatMessages({
+      ...baseOpts,
+      sources: [
+        { reference: "a", snapshot: bigSnapshot, roadmapMarkdown: null },
+        { reference: "b", snapshot: bigSnapshot, roadmapMarkdown: null },
+        { reference: "c", snapshot: bigSnapshot, roadmapMarkdown: null },
+      ],
+    });
+    const system = msgs.find((m) => m._getType() === "system");
+    expect((system?.content as string).length).toBeLessThanOrEqual(70_000); // system prompt overhead
   });
 });
 
@@ -99,23 +116,29 @@ describe("buildChatMessages", () => {
 
 describe("extractRoadbookUpdate", () => {
   it("returns null when no roadbook block present", () => {
-    const result = extractRoadbookUpdate("Just a normal reply.");
-    expect(result).toBeNull();
+    expect(extractRoadbookUpdate("Just a normal reply.")).toBeNull();
   });
 
   it("extracts roadbook markdown from tagged block", () => {
-    const reply = `Sure! Here's the updated roadbook:\n\n<roadbook>\n# Updated Title\n\n- Step 1\n</roadbook>\n\nLet me know if you need changes.`;
-    const result = extractRoadbookUpdate(reply);
-    expect(result).toBe("# Updated Title\n\n- Step 1");
+    const reply = `Sure!\n\n<roadbook>\n# Updated Title\n\n- Step 1\n</roadbook>\n\nDone.`;
+    expect(extractRoadbookUpdate(reply)).toBe("# Updated Title\n\n- Step 1");
+  });
+});
+
+// ── stripRoadbookBlock ────────────────────────────────────────────────────────
+
+describe("stripRoadbookBlock", () => {
+  it("removes roadbook tags and content from reply", () => {
+    const reply = `Here you go.\n\n<roadbook>\n# Title\n</roadbook>\n\nDone!`;
+    const stripped = stripRoadbookBlock(reply);
+    expect(stripped).not.toContain("<roadbook>");
+    expect(stripped).toContain("Here you go.");
+    expect(stripped).toContain("Done!");
   });
 
-  it("strips the roadbook block from the visible reply", () => {
-    const reply = `Here you go.\n\n<roadbook>\n# Title\n</roadbook>\n\nDone!`;
-    const { visibleReply } = extractRoadbookUpdate(reply) !== null
-      ? { visibleReply: reply.replace(/<roadbook>[\s\S]*?<\/roadbook>/g, "").trim() }
-      : { visibleReply: reply };
-    expect(visibleReply).not.toContain("<roadbook>");
-    expect(visibleReply).toContain("Here you go.");
-    expect(visibleReply).toContain("Done!");
+  it("collapses multiple blank lines", () => {
+    const reply = `Before\n\n\n\n<roadbook># x</roadbook>\n\n\n\nAfter`;
+    const stripped = stripRoadbookBlock(reply);
+    expect(stripped).not.toMatch(/\n{3,}/);
   });
 });

@@ -69,7 +69,7 @@ export interface Workspace {
 
 // ── Store ────────────────────────────────────────────────────────────────────
 
-const DATA_DIR = join(process.cwd(), "data");
+const DATA_DIR = process.env.ARIADNE_DATA_DIR ?? join(process.cwd(), "data");
 const STORE_FILE = join(DATA_DIR, "workspaces.json");
 
 function loadStore(): Workspace[] {
@@ -458,10 +458,14 @@ app.post("/workspaces/:id/chat/stream", async (req, res) => {
   const workspace = findWorkspace(req.params.id as string);
   if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
 
-  const { messages, sourceId } = req.body as { messages: ChatMessage[]; sourceId?: string };
+  const { messages, sourceIds } = req.body as { messages: ChatMessage[]; sourceIds?: string[] };
   if (!messages?.length) { res.status(400).json({ error: "messages required" }); return; }
 
-  const source = sourceId ? workspace.sources.find((s) => s.id === sourceId) : null;
+  // Resolve sources: explicit list → all workspace sources
+  const activeSources = sourceIds?.length
+    ? workspace.sources.filter((s) => sourceIds.includes(s.id))
+    : workspace.sources;
+
   const userMessage = messages[messages.length - 1].content;
   const history = messages.slice(0, -1);
 
@@ -475,8 +479,13 @@ app.post("/workspaces/:id/chat/stream", async (req, res) => {
     let full = "";
     for await (const chunk of chatStream({
       workspaceTitle: workspace.title,
-      sourceSnapshot: source?.snapshot ?? null,
-      roadbookMarkdown: source?.roadmap?.markdown ?? null,
+      journeyRoadmap: workspace.roadmap?.markdown ?? null,
+      sources: activeSources.map((s) => ({
+        reference: s.reference,
+        snapshot: s.snapshot,
+        roadmapMarkdown: s.roadmap?.markdown ?? null,
+      })),
+      insights: workspace.insights.map((i) => i.content),
       history,
       userMessage,
     })) {
@@ -487,12 +496,17 @@ app.post("/workspaces/:id/chat/stream", async (req, res) => {
     const roadbookUpdate = extractRoadbookUpdate(full);
     const reply = roadbookUpdate ? stripRoadbookBlock(full) : full;
 
-    if (roadbookUpdate && source) {
-      source.roadmap = { id: source.roadmap?.id ?? uid(), markdown: roadbookUpdate, generatedAt: Date.now() };
+    // Apply roadbook update to the first active source that has a roadmap (or the only one)
+    const targetSource = activeSources.length === 1
+      ? activeSources[0]
+      : activeSources.find((s) => s.roadmap) ?? null;
+
+    if (roadbookUpdate && targetSource) {
+      targetSource.roadmap = { id: targetSource.roadmap?.id ?? uid(), markdown: roadbookUpdate, generatedAt: Date.now() };
       updateWorkspace(workspace);
     }
 
-    send({ done: true, reply, roadbookUpdated: !!roadbookUpdate, roadmap: source?.roadmap ?? null });
+    send({ done: true, reply, roadbookUpdated: !!roadbookUpdate, roadmap: targetSource?.roadmap ?? null });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     send({ error: message });
@@ -679,8 +693,12 @@ app.post("/workspaces/:id/research-todos/:todoId/run", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`\n🧶 Ariadne engine running at http://localhost:${PORT}`);
-  logTracingStatus();
-  console.log();
-});
+export { app };
+
+if (process.env.NODE_ENV !== "test") {
+  app.listen(PORT, () => {
+    console.log(`\n🧶 Ariadne engine running at http://localhost:${PORT}`);
+    logTracingStatus();
+    console.log();
+  });
+}

@@ -15,7 +15,9 @@
     "ariadne": "tsx src/ariadne/cli.ts",
     "ariadne:server": "tsx src/ariadne/server.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:eval": "vitest run --config vitest.eval.config.ts"
   },
   "dependencies": {
     "@langchain/anthropic": "^1.3.22",
@@ -62,6 +64,7 @@
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.18",
+    "@vitest/coverage-v8": "^4.0.18"
   }
 }

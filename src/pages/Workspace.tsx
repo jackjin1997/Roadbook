@@ -215,7 +215,10 @@ export default function WorkspacePage() {
     setChatInput("");
     setChatLoading(true);
     try {
-      const result = await streamChatMessage(workspace.id, next, selectedSourceId ?? undefined, (chunk) => {
+      const activeIds = checkedSourceIds.size > 0
+        ? [...checkedSourceIds]
+        : selectedSourceId ? [selectedSourceId] : [];
+      const result = await streamChatMessage(workspace.id, next, activeIds.length ? activeIds : undefined, (chunk) => {
         setChatMessages((msgs) => {
           const last = msgs[msgs.length - 1];
           if (last?.role !== "assistant") return msgs;
@@ -528,6 +531,41 @@ export default function WorkspacePage() {
           {/* Chat tab */}
           {rightTab === "chat" && (
             <>
+              {/* Context indicator */}
+              <div className="px-3 py-1.5 border-b flex items-center gap-1.5 flex-wrap shrink-0"
+                style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", minHeight: 32 }}>
+                <span className="text-[10px] shrink-0" style={{ color: "var(--color-text-muted)", opacity: 0.6 }}>ctx:</span>
+                {(() => {
+                  const activeSources = checkedSourceIds.size > 0
+                    ? workspace.sources.filter((s) => checkedSourceIds.has(s.id))
+                    : selectedSourceId
+                      ? workspace.sources.filter((s) => s.id === selectedSourceId)
+                      : workspace.sources;
+                  return (
+                    <>
+                      {activeSources.slice(0, 3).map((s) => (
+                        <span key={s.id} className="text-[10px] px-1.5 py-0.5 rounded truncate max-w-[120px]"
+                          style={{ background: "var(--color-border)", color: "var(--color-text-muted)" }}
+                          title={s.reference}>
+                          {s.origin === "research" ? "🔬 " : ""}{(s.type === "url" ? s.reference.replace(/^https?:\/\//, "") : s.reference).slice(0, 30)}
+                        </span>
+                      ))}
+                      {activeSources.length > 3 && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded"
+                          style={{ background: "var(--color-border)", color: "var(--color-text-muted)" }}>
+                          +{activeSources.length - 3}
+                        </span>
+                      )}
+                      {workspace.roadmap && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
+                          style={{ background: "color-mix(in srgb, var(--color-accent) 15%, transparent)", color: "var(--color-accent)" }}>
+                          Journey
+                        </span>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
               <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
                 {chatMessages.length === 0 && (
                   <p className="text-xs text-center mt-8" style={{ color: "var(--color-text-muted)", opacity: 0.5 }}>

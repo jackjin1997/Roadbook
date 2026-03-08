@@ -7,16 +7,73 @@ export interface ChatMessage {
   content: string;
 }
 
+interface SourceContext {
+  reference: string;
+  snapshot: string;
+  roadmapMarkdown: string | null;
+}
+
 interface BuildOptions {
   workspaceTitle: string;
-  sourceSnapshot: string | null;
-  roadbookMarkdown: string | null;
+  journeyRoadmap: string | null;
+  sources: SourceContext[];          // ordered by priority (caller decides)
+  insights: string[];
   history: ChatMessage[];
   userMessage: string;
 }
 
+const BUDGET = 60_000;
+
+/**
+ * Progressively fill the system context up to BUDGET chars.
+ * Priority: journey roadmap → source roadmaps → insights → source snapshots
+ */
+function buildContext(
+  journeyRoadmap: string | null,
+  sources: SourceContext[],
+  insights: string[],
+): string {
+  let ctx = "";
+
+  // P1: journey roadmap
+  if (journeyRoadmap) {
+    ctx += `## Journey Roadmap\n${journeyRoadmap.slice(0, 8_000)}\n\n`;
+  }
+
+  // P2: source roadmaps
+  for (const s of sources) {
+    if (!s.roadmapMarkdown) continue;
+    const remaining = BUDGET - ctx.length;
+    if (remaining < 200) break;
+    ctx += `## Roadmap: ${s.reference}\n${s.roadmapMarkdown.slice(0, Math.min(6_000, remaining))}\n\n`;
+  }
+
+  // P3: insights
+  if (insights.length > 0) {
+    const insightsBlock = `## Insights\n${insights.map((ins) => `- ${ins}`).join("\n")}`;
+    const remaining = BUDGET - ctx.length;
+    if (remaining > 200) ctx += insightsBlock.slice(0, Math.min(2_000, remaining)) + "\n\n";
+  }
+
+  // P4: source snapshots (split remaining budget evenly)
+  const snapSources = sources.filter((s) => s.snapshot);
+  const perSource = Math.floor((BUDGET - ctx.length) / Math.max(snapSources.length, 1));
+  for (const s of snapSources) {
+    const remaining = BUDGET - ctx.length;
+    if (remaining < 200) {
+      ctx += `[Source: ${s.reference} — content exceeds context limit]\n\n`;
+      continue;
+    }
+    ctx += `## Source: ${s.reference}\n${s.snapshot.slice(0, Math.min(perSource, remaining))}\n\n`;
+  }
+
+  return ctx.trim();
+}
+
 export function buildChatMessages(opts: BuildOptions): BaseMessage[] {
-  const { workspaceTitle, sourceSnapshot, roadbookMarkdown, history, userMessage } = opts;
+  const { workspaceTitle, journeyRoadmap, sources, insights, history, userMessage } = opts;
+
+  const context = buildContext(journeyRoadmap, sources, insights);
 
   let system = `You are Ariadne, an AI assistant embedded in Roadbook — a learning roadmap generator.
 You are helping the user with their journey: "${workspaceTitle}".
@@ -28,24 +85,12 @@ You can:
 
 If the user asks you to update or rewrite the roadbook, output the full updated Markdown wrapped in <roadbook>...</roadbook> tags. Otherwise reply normally.`;
 
-  if (sourceSnapshot) {
-    system += `\n\n## Source Material\n\`\`\`\n${sourceSnapshot.slice(0, 4000)}\n\`\`\``;
-  }
-
-  if (roadbookMarkdown) {
-    system += `\n\n## Current Roadbook\n${roadbookMarkdown.slice(0, 6000)}`;
-  }
+  if (context) system += `\n\n${context}`;
 
   const messages: BaseMessage[] = [new SystemMessage(system)];
-
   for (const msg of history) {
-    messages.push(
-      msg.role === "user"
-        ? new HumanMessage(msg.content)
-        : new AIMessage(msg.content)
-    );
+    messages.push(msg.role === "user" ? new HumanMessage(msg.content) : new AIMessage(msg.content));
   }
-
   messages.push(new HumanMessage(userMessage));
   return messages;
 }
@@ -59,19 +104,6 @@ export function extractRoadbookUpdate(reply: string): string | null {
 
 export function stripRoadbookBlock(reply: string): string {
   return reply.replace(ROADBOOK_RE, "").replace(/\n{3,}/g, "\n\n").trim();
-}
-
-export async function chat(opts: BuildOptions): Promise<{
-  reply: string;
-  roadbookUpdate: string | null;
-}> {
-  const messages = buildChatMessages(opts);
-  const model = getModel();
-  const res = await model.invoke(messages);
-  const raw = typeof res.content === "string" ? res.content : JSON.stringify(res.content);
-  const roadbookUpdate = extractRoadbookUpdate(raw);
-  const reply = roadbookUpdate ? stripRoadbookBlock(raw) : raw;
-  return { reply, roadbookUpdate };
 }
 
 export async function* chatStream(opts: BuildOptions): AsyncGenerator<string> {
