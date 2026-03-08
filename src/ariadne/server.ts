@@ -15,7 +15,7 @@ const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string
 import { generateRoadbook, generateJourneyRoadbook } from "./workflow.js";
 import { chat, chatStream, extractRoadbookUpdate, stripRoadbookBlock } from "./chat.js";
 import type { ChatMessage } from "./chat.js";
-import { setModelConfig, inferProvider } from "./config.js";
+import { setModelConfig, inferProvider, getModel } from "./config.js";
 import type { ModelProvider } from "./config.js";
 import { logTracingStatus } from "./tracing.js";
 
@@ -531,6 +531,151 @@ app.post("/workspaces/:id/sources/:sourceId/generate", async (req, res) => {
   } finally {
     // Reset to default so one request's model choice doesn't leak into subsequent requests
     setModelConfig({ provider: "gemini", modelName: "gemini-3.1-pro-low" });
+  }
+});
+
+// ── Digest (T03) ──────────────────────────────────────────────────────────────
+
+app.post("/workspaces/:id/digest", async (req, res) => {
+  const workspace = findWorkspace(req.params.id);
+  if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
+
+  const { sourceId, segmentIds, segments } = req.body as {
+    sourceId: string;
+    segmentIds: string[];
+    segments: string[];
+  };
+  if (!sourceId || !segments?.length) {
+    res.status(400).json({ error: "sourceId and segments are required" }); return;
+  }
+  const source = workspace.sources.find((s) => s.id === sourceId);
+  if (!source) { res.status(404).json({ error: "Source not found" }); return; }
+
+  try {
+    const model = getModel();
+    const currentRoadmap = workspace.roadmap?.markdown ?? "";
+    const prompt = `You are merging selected knowledge segments into a Journey Roadmap.
+
+${currentRoadmap ? `## Current Journey Roadmap\n${currentRoadmap}\n\n` : ""}## Selected Segments to Digest
+${segments.join("\n\n---\n\n")}
+
+## Instructions
+- Integrate the selected segments into the Journey Roadmap
+- For existing skill nodes: merge subSkills and relatedConcepts, upgrade priority if needed
+- For new skill nodes: append them in the appropriate category
+- Keep all existing Journey Roadmap content intact
+- Output the complete updated Journey Roadmap in Markdown (starting with # heading)
+- Do NOT add any explanation outside the Markdown`;
+
+    const { content } = await model.invoke([{ role: "user", content: prompt }]);
+    const markdown = typeof content === "string" ? content : JSON.stringify(content);
+
+    workspace.roadmap = {
+      id: workspace.roadmap?.id ?? uid(),
+      markdown,
+      generatedAt: Date.now(),
+    };
+    source.digestedSegmentIds = [
+      ...new Set([...source.digestedSegmentIds, ...segmentIds]),
+    ];
+    updateWorkspace(workspace);
+    res.json({ roadmap: workspace.roadmap });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
+  }
+});
+
+// ── Insights (T04) ────────────────────────────────────────────────────────────
+
+app.post("/workspaces/:id/insights", (req, res) => {
+  const workspace = findWorkspace(req.params.id);
+  if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
+  const { content, sourceRef } = req.body as { content?: string; sourceRef?: Insight["sourceRef"] };
+  if (!content?.trim()) { res.status(400).json({ error: "content is required" }); return; }
+  const insight: Insight = { id: uid(), content: content.trim(), sourceRef, createdAt: Date.now() };
+  workspace.insights.push(insight);
+  updateWorkspace(workspace);
+  res.status(201).json(insight);
+});
+
+app.delete("/workspaces/:id/insights/:insightId", (req, res) => {
+  const workspace = findWorkspace(req.params.id);
+  if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
+  workspace.insights = workspace.insights.filter((i) => i.id !== req.params.insightId);
+  updateWorkspace(workspace);
+  res.json({ ok: true });
+});
+
+// ── Research Todos (T05) ──────────────────────────────────────────────────────
+
+app.post("/workspaces/:id/research-todos", (req, res) => {
+  const workspace = findWorkspace(req.params.id);
+  if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
+  const { topic, description, linkedSkillNode } = req.body as Partial<ResearchTodo>;
+  if (!topic?.trim()) { res.status(400).json({ error: "topic is required" }); return; }
+  const todo: ResearchTodo = {
+    id: uid(), topic: topic.trim(), description, linkedSkillNode,
+    status: "pending", createdAt: Date.now(),
+  };
+  workspace.researchTodos.push(todo);
+  updateWorkspace(workspace);
+  res.status(201).json(todo);
+});
+
+app.patch("/workspaces/:id/research-todos/:todoId", (req, res) => {
+  const workspace = findWorkspace(req.params.id);
+  if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
+  const todo = workspace.researchTodos.find((t) => t.id === req.params.todoId);
+  if (!todo) { res.status(404).json({ error: "Todo not found" }); return; }
+  const { status, description } = req.body as Partial<ResearchTodo>;
+  if (status) todo.status = status;
+  if (description !== undefined) todo.description = description;
+  updateWorkspace(workspace);
+  res.json(todo);
+});
+
+app.delete("/workspaces/:id/research-todos/:todoId", (req, res) => {
+  const workspace = findWorkspace(req.params.id);
+  if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
+  workspace.researchTodos = workspace.researchTodos.filter((t) => t.id !== req.params.todoId);
+  updateWorkspace(workspace);
+  res.json({ ok: true });
+});
+
+app.post("/workspaces/:id/research-todos/:todoId/run", async (req, res) => {
+  const workspace = findWorkspace(req.params.id);
+  if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
+  const todo = workspace.researchTodos.find((t) => t.id === req.params.todoId);
+  if (!todo) { res.status(404).json({ error: "Todo not found" }); return; }
+
+  todo.status = "in-progress";
+  updateWorkspace(workspace);
+
+  try {
+    const markdown = await generateRoadbook(
+      `Research topic: ${todo.topic}\n\n${todo.description ?? ""}`,
+      "Chinese",
+    );
+    const source: Source = {
+      id: uid(), type: "text", origin: "research",
+      reference: todo.topic,
+      snapshot: `Research: ${todo.topic}\n\n${todo.description ?? ""}`,
+      ingestedAt: Date.now(),
+      language: "Chinese",
+      roadmap: { id: uid(), markdown, generatedAt: Date.now() },
+      digestedSegmentIds: [],
+    };
+    workspace.sources.push(source);
+    todo.status = "done";
+    todo.resultSourceId = source.id;
+    updateWorkspace(workspace);
+    res.json({ todo, source });
+  } catch (err) {
+    todo.status = "pending";
+    updateWorkspace(workspace);
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
   }
 });
 
