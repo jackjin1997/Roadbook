@@ -13,13 +13,13 @@ function ensureInit() {
       primaryColor: "#ede9fb",
       primaryTextColor: "#18152e",
       primaryBorderColor: "#c4b9f8",
-      lineColor: "#9585e8",
+      lineColor: "#b5a8f0",
       secondaryColor: "#f6f5fb",
       tertiaryColor: "#ffffff",
       mainBkg: "#ede9fb",
-      nodeBorder: "#9585e8",
+      nodeBorder: "#c4b9f8",
       nodeTextColor: "#18152e",
-      edgeLabelBackground: "#f6f5fb",
+      edgeLabelBackground: "#f8f7ff",
       fontSize: "13px",
     },
     fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif',
@@ -135,6 +135,9 @@ export function MermaidDiagram({ code }: { code: string }) {
     return <pre className="mermaid-fallback"><code>{code}</code></pre>;
   }
 
+  const FADE = "rgba(255,255,255,0)";
+  const BG = "#ffffff";
+
   return (
     <div
       ref={wrapperRef}
@@ -142,64 +145,78 @@ export function MermaidDiagram({ code }: { code: string }) {
       onDoubleClick={reset}
       style={{
         position: "relative",
-        height: 360,
+        height: 420,
         overflow: "hidden",
-        background: "#faf9fe",
-        border: "1px solid var(--color-border)",
-        borderRadius: 12,
+        background: BG,
+        borderRadius: 16,
+        boxShadow: "0 0 0 1px rgba(114,96,220,0.1), 0 4px 24px rgba(114,96,220,0.07)",
         cursor: "grab",
         userSelect: "none",
-        margin: "1.75rem 0",
+        margin: "2rem 0",
       }}
     >
-      {/* Zoom controls */}
-      <div style={{
-        position: "absolute", top: 10, right: 10, zIndex: 10,
-        display: "flex", alignItems: "center", gap: 4,
-      }}>
+      {/* Edge fade overlays */}
+      {[
+        { top: 0, left: 0, right: 0, height: 48, background: `linear-gradient(to bottom, ${BG}, ${FADE})` },
+        { bottom: 0, left: 0, right: 0, height: 48, background: `linear-gradient(to top, ${BG}, ${FADE})` },
+        { top: 0, bottom: 0, left: 0, width: 40, background: `linear-gradient(to right, ${BG}, ${FADE})` },
+        { top: 0, bottom: 0, right: 0, width: 40, background: `linear-gradient(to left, ${BG}, ${FADE})` },
+      ].map((s, i) => (
+        <div key={i} style={{ position: "absolute", pointerEvents: "none", zIndex: 5, ...s }} />
+      ))}
+
+      {/* Control pill */}
+      <div
+        style={{
+          position: "absolute", bottom: 12, right: 12, zIndex: 10,
+          display: "flex", alignItems: "center",
+          background: "rgba(255,255,255,0.88)",
+          backdropFilter: "blur(8px)",
+          border: "1px solid rgba(114,96,220,0.13)",
+          borderRadius: 20,
+          boxShadow: "0 1px 8px rgba(0,0,0,0.07)",
+          padding: "2px 4px",
+          gap: 0,
+        }}
+      >
         <span style={{
-          fontSize: 10, color: "var(--color-text-muted)", opacity: 0.6,
-          fontVariantNumeric: "tabular-nums", minWidth: 32, textAlign: "right",
+          fontSize: 10, color: "var(--color-text-muted)",
+          fontVariantNumeric: "tabular-nums", minWidth: 30,
+          textAlign: "center", padding: "0 4px", opacity: 0.65,
         }}>
           {displayScale}%
         </span>
+        <div style={{ width: 1, height: 12, background: "rgba(114,96,220,0.15)", margin: "0 2px", flexShrink: 0 }} />
         {[
-          { label: "+", action: () => { const s = Math.min(tf.current.scale * 1.25, 6); tf.current = { ...tf.current, scale: s }; commit(); } },
-          { label: "−", action: () => { const s = Math.max(tf.current.scale * 0.8, 0.15); tf.current = { ...tf.current, scale: s }; commit(); } },
-          { label: "⊙", action: reset },
-        ].map(({ label, action }) => (
+          { label: "+", title: "放大", action: () => { const s = Math.min(tf.current.scale * 1.25, 6); tf.current = { ...tf.current, scale: s }; commit(); } },
+          { label: "−", title: "缩小", action: () => { const s = Math.max(tf.current.scale * 0.8, 0.15); tf.current = { ...tf.current, scale: s }; commit(); } },
+          { label: "⊙", title: "还原", action: reset },
+        ].map(({ label, title, action }) => (
           <button
             key={label}
+            title={title}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => { e.stopPropagation(); action(); }}
             style={{
               width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: label === "⊙" ? 13 : 15, lineHeight: 1,
-              background: "var(--color-surface)", border: "1px solid var(--color-border)",
-              borderRadius: 6, cursor: "pointer", color: "var(--color-text-muted)",
-              transition: "border-color 0.1s, color 0.1s",
+              fontSize: label === "⊙" ? 12 : 14, lineHeight: 1,
+              background: "transparent", border: "none",
+              borderRadius: 14, cursor: "pointer",
+              color: "var(--color-text-muted)",
+              transition: "background 0.12s, color 0.12s",
             }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.borderColor = "var(--color-accent)";
+              (e.currentTarget as HTMLElement).style.background = "rgba(114,96,220,0.1)";
               (e.currentTarget as HTMLElement).style.color = "var(--color-accent)";
             }}
             onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.borderColor = "var(--color-border)";
+              (e.currentTarget as HTMLElement).style.background = "transparent";
               (e.currentTarget as HTMLElement).style.color = "var(--color-text-muted)";
             }}
           >
             {label}
           </button>
         ))}
-      </div>
-
-      {/* Hint */}
-      <div style={{
-        position: "absolute", bottom: 8, left: "50%", transform: "translateX(-50%)",
-        fontSize: 10, color: "var(--color-text-muted)", opacity: 0.4,
-        pointerEvents: "none", whiteSpace: "nowrap",
-      }}>
-        捏合缩放 · 拖拽平移 · 双击还原
       </div>
 
       {/* Diagram */}
@@ -213,7 +230,7 @@ export function MermaidDiagram({ code }: { code: string }) {
           justifyContent: "center",
           transformOrigin: "center center",
           willChange: "transform",
-          padding: "24px 40px",
+          padding: "32px 48px",
         }}
       />
     </div>
