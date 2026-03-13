@@ -17,7 +17,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:eval": "vitest run --config vitest.eval.config.ts"
+    "test:eval": "vitest run --config vitest.eval.config.ts",
+    "eval:langsmith": "tsx src/ariadne/__tests__/eval/langsmith-eval.ts",
+    "eval:langsmith:ci": "tsx src/ariadne/__tests__/eval/langsmith-eval.ts --ci"
   },
   "dependencies": {
     "@langchain/anthropic": "^1.3.22",
@@ -62,6 +64,7 @@
     "@vitejs/plugin-react": "^5.1.4",
     "@vitest/coverage-v8": "^4.0.18",
     "concurrently": "^9.2.1",
+    "openevals": "^0.1.4",
     "tailwindcss": "^4.2.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",

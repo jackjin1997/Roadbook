@@ -129,6 +129,9 @@ importers:
       concurrently:
         specifier: ^9.2.1
         version: 9.2.1
+      openevals:
+        specifier: ^0.1.4
+        version: 0.1.4(@langchain/core@1.1.31(openai@6.27.0(zod@4.3.6)))(openai@6.27.0(zod@4.3.6))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)(zod@4.3.6)
       tailwindcss:
         specifier: ^4.2.1
         version: 4.2.1
@@ -2343,6 +2346,16 @@ packages:
       ws:
         optional: true
       zod:
+        optional: true
+
+  openevals@0.1.4:
+    resolution: {integrity: sha512-xCsezdASXwiLp3zDw1X30npQMY97E5VnWS6ICfTQehxBA9yNC9+F3q/+khABQ90z6Vhiij4ZXSvd14M3g4a0vw==}
+    peerDependencies:
+      '@langchain/core': '>=0.3.73'
+      typescript: '*'
+      zod: '>=3.24.2'
+    peerDependenciesMeta:
+      typescript:
         optional: true
 
   option@0.2.4:
@@ -5356,6 +5369,26 @@ snapshots:
   openai@6.27.0(zod@4.3.6):
     optionalDependencies:
       zod: 4.3.6
+
+  openevals@0.1.4(@langchain/core@1.1.31(openai@6.27.0(zod@4.3.6)))(openai@6.27.0(zod@4.3.6))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)(zod@4.3.6):
+    dependencies:
+      '@langchain/core': 1.1.31(openai@6.27.0(zod@4.3.6))
+      '@langchain/openai': 1.2.12(@langchain/core@1.1.31(openai@6.27.0(zod@4.3.6)))
+      langchain: 1.2.30(@langchain/core@1.1.31(openai@6.27.0(zod@4.3.6)))(openai@6.27.0(zod@4.3.6))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      langsmith: 0.5.8(openai@6.27.0(zod@4.3.6))
+      uuid: 11.1.0
+      zod: 4.3.6
+    optionalDependencies:
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - '@opentelemetry/api'
+      - '@opentelemetry/exporter-trace-otlp-proto'
+      - '@opentelemetry/sdk-trace-base'
+      - openai
+      - react
+      - react-dom
+      - ws
+      - zod-to-json-schema
 
   option@0.2.4: {}
 
