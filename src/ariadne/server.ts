@@ -197,47 +197,32 @@ app.get("/health", (_req, res) => {
 
 // List available models from the OpenAI-compatible proxy
 app.get("/models", async (_req, res) => {
-  try {
-    const base = process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1";
-    const r = await fetch(`${base}/models`, {
-      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!r.ok) { res.json({ models: [] }); return; }
-    const data = await r.json() as { data: { id: string }[] };
-    const all = data.data.map((m) => m.id);
+  const models: string[] = [];
 
-    // Priority-ordered curated list — first match wins per slot
-    const CURATED = [
-      /claude-sonnet-4-6/,
-      /claude-sonnet-4-5/,
-      /claude-opus-4/,
-      /claude-haiku-4-5/,
-      /claude-3-7-sonnet/,
-      /claude-3-5-sonnet/,
-      /claude-3-5-haiku/,
-      /^gpt-4o$/,
-      /^gpt-4o-mini$/,
-      /^gemini-2\.0-flash/,
-    ];
-
-    const curated: string[] = [];
-    for (const pattern of CURATED) {
-      const match = all.find((m) => pattern.test(m));
-      if (match && !curated.includes(match)) curated.push(match);
-    }
-    const models = curated.length > 0 ? curated : all.slice(0, 8);
-
-    // Append native models (not via proxy) if not already listed
-    const NATIVE = ["gemini-3.1-pro-low", "gemini-2.0-flash"];
-    for (const m of NATIVE) {
-      if (!models.includes(m)) models.push(m);
-    }
-
-    res.json({ models });
-  } catch {
-    res.json({ models: [] });
+  // Gemini models (direct Google API)
+  if (process.env.GOOGLE_API_KEY) {
+    models.push("gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash");
   }
+
+  // Try OpenAI-compatible proxy if configured
+  if (process.env.OPENAI_BASE_URL) {
+    try {
+      const base = process.env.OPENAI_BASE_URL;
+      const r = await fetch(`${base}/models`, {
+        headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+        signal: AbortSignal.timeout(5000),
+      });
+      if (r.ok) {
+        const data = await r.json() as { data: { id: string }[] };
+        for (const m of data.data) {
+          if (!models.includes(m.id)) models.push(m.id);
+        }
+      }
+    } catch { /* proxy unavailable, skip */ }
+  }
+
+  if (models.length === 0) models.push("gemini-2.5-flash");
+  res.json({ models });
 });
 
 // ── Workspace endpoints ───────────────────────────────────────────────────────
@@ -428,7 +413,7 @@ app.post("/workspaces/:id/generate-journey", async (req, res) => {
     send({ type: "error", error: message });
   } finally {
     res.end();
-    setModelConfig({ provider: "gemini", modelName: "gemini-3.1-pro-low" });
+    setModelConfig({ provider: "gemini", modelName: "gemini-2.5-flash" });
   }
 });
 
@@ -543,7 +528,7 @@ app.post("/workspaces/:id/sources/:sourceId/generate", async (req, res) => {
     send({ type: "error", error: message });
   } finally {
     res.end();
-    setModelConfig({ provider: "gemini", modelName: "gemini-3.1-pro-low" });
+    setModelConfig({ provider: "gemini", modelName: "gemini-2.5-flash" });
   }
 });
 

@@ -20,6 +20,7 @@ vi.mock("@langchain/google-genai", () => ({
 import { getModel, setModelConfig } from "../config.js";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatAnthropic } from "@langchain/anthropic";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -38,11 +39,10 @@ describe("setModelConfig / getModel", () => {
     expect(model._tag).toBe("anthropic");
   });
 
-  // Gemini routes through ChatOpenAI (proxy mode)
-  it("switches to Gemini provider — routes through ChatOpenAI", () => {
+  it("switches to Gemini provider — routes through ChatGoogleGenerativeAI", () => {
     setModelConfig({ provider: "gemini" });
     const model = getModel() as unknown as { _tag: string };
-    expect(model._tag).toBe("openai");
+    expect(model._tag).toBe("gemini");
   });
 
   it("applies custom modelName to OpenAI", () => {
@@ -61,19 +61,19 @@ describe("setModelConfig / getModel", () => {
     );
   });
 
-  it("applies custom modelName to Gemini — routes through ChatOpenAI with modelName", () => {
-    setModelConfig({ provider: "gemini", modelName: "gemini-1.5-pro" });
+  it("applies custom modelName to Gemini — routes through ChatGoogleGenerativeAI", () => {
+    setModelConfig({ provider: "gemini", modelName: "gemini-2.5-pro" });
     getModel();
-    expect(ChatOpenAI).toHaveBeenCalledWith(
-      expect.objectContaining({ modelName: "gemini-1.5-pro" }),
+    expect(ChatGoogleGenerativeAI).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "gemini-2.5-pro" }),
     );
   });
 
   it("partial update preserves existing provider", () => {
     setModelConfig({ provider: "gemini" });
-    setModelConfig({ modelName: "gemini-1.5-pro" });
+    setModelConfig({ modelName: "gemini-2.5-pro" });
     const model = getModel() as unknown as { _tag: string };
-    expect(model._tag).toBe("openai"); // gemini routes through OpenAI proxy
+    expect(model._tag).toBe("gemini");
   });
 
   it("throws for unknown provider", () => {

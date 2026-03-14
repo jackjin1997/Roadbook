@@ -1,5 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatAnthropic } from "@langchain/anthropic";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 
 export type ModelProvider = "openai" | "anthropic" | "gemini";
@@ -11,18 +12,18 @@ interface ModelConfig {
 
 const DEFAULT_CONFIG: ModelConfig = {
   provider: "gemini",
-  modelName: "gemini-3.1-pro-low",
+  modelName: "gemini-2.5-flash",
 };
 
 let currentConfig: ModelConfig = { ...DEFAULT_CONFIG };
 
 /**
- * Infer native provider from model name, used only when no OpenAI-compatible proxy is set.
- * When OPENAI_BASE_URL is configured, all models route through ChatOpenAI regardless.
+ * Infer provider from model name.
  */
 export function inferProvider(modelName: string): ModelProvider {
   if (modelName.startsWith("claude")) return "anthropic";
-  return "openai"; // gemini-* and gpt-* all go through OpenAI-compatible proxy
+  if (modelName.startsWith("gemini")) return "gemini";
+  return "openai";
 }
 
 export function setModelConfig(config: Partial<ModelConfig>) {
@@ -31,8 +32,13 @@ export function setModelConfig(config: Partial<ModelConfig>) {
 
 export function getModel(): BaseChatModel {
   switch (currentConfig.provider) {
-    case "openai":
     case "gemini":
+      return new ChatGoogleGenerativeAI({
+        model: currentConfig.modelName ?? "gemini-2.5-flash",
+        temperature: 0.3,
+        apiKey: process.env.GOOGLE_API_KEY,
+      });
+    case "openai":
       return new ChatOpenAI({
         modelName: currentConfig.modelName ?? "gpt-4o",
         temperature: 0.3,
