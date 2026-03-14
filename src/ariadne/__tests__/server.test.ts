@@ -527,6 +527,20 @@ describe("Global Skill Index", () => {
     const reactSkill = data.skills.find((s) => s.name === "React");
     expect(reactSkill?.status).toBe("mastered");
   });
+
+  it("skill-index includes priority field", async () => {
+    const { data } = await get<{ skills: { name: string; priority: string }[] }>("/skill-index");
+    const reactSkill = data.skills.find((s) => s.name === "React");
+    expect(reactSkill?.priority).toBe("high");
+  });
+
+  it("workspace list reflects skillCount after generation", async () => {
+    const { data: list } = await get<{ id: string; skillCount: number; masteredCount: number }[]>("/workspaces");
+    const item = list.find((w) => w.id === wsId);
+    expect(item).toBeDefined();
+    expect(item!.skillCount).toBeGreaterThan(0);
+    expect(item!.masteredCount).toBe(1); // "React" was set to mastered above
+  });
 });
 
 describe("Data migration (old workspaces)", () => {

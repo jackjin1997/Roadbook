@@ -71,7 +71,14 @@ export default function Home() {
       >
         <span className="text-xl font-bold gradient-text">Roadbook</span>
         <span className="ml-2 text-sm" style={{ color: "var(--color-text-muted)" }}>路书</span>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-3">
+          <button
+            onClick={() => navigate("/skills")}
+            className="text-xs px-3 py-1.5 rounded-lg transition-colors"
+            style={{ border: "1px solid var(--color-border)", color: "var(--color-text-muted)", background: "var(--color-surface)" }}
+          >
+            Skill Radar
+          </button>
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value)}

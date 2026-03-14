@@ -197,4 +197,4 @@
 - [x] T18 · Research 可靠性增强（指数退避重试 + failedSkills 前端提示）
 - [x] T19 · 技能图谱可视化（D3 force graph + Prose/Graph 切换）
 - [x] T16 · Obsidian vault 导出（JSZip + wikilinks，Journey 导出按钮）
-- [x] T20 · Workspace 间技能关联（GET /skill-index API + Home 页 skillCount/masteredCount 进度条）
+- [x] T20 · Workspace 间技能关联（GET /skill-index API + Home 页进度条 + Skill Radar 页面）
