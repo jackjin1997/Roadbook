@@ -1,163 +1,127 @@
-# Roadbook 路书
+<p align="center">
+  <code><b>R O A D B O O K</b></code>
+  <br>
+  <i>路书 — AI-powered skill roadmap generator</i>
+</p>
 
-> 输入一份 JD，Ariadne 为你生成专属的通关路书。
-
-给技术人用的 AI 学习路径生成器。粘贴一份 JD、一段简历、或任意技术概念，Ariadne 自动提取技能树、联网调研每个知识点，输出一份带交互式技能图谱和推荐资源的结构化路书。
-
----
-
-## 特色功能
-
-### 射箭靶心技能图谱
-
-D3 力导向图 + 径向布局，灵感来自 [MiroFish](https://github.com/666ghj/MiroFish)：
-
-- **靶心布局**：High priority 技能在中心，Medium 在中环，Low 在外环，三个同心圆可视化优先级
-- **展开/收起子技能**：点击节点展开子技能卫星节点（虚线连接），再点收起
-- **权重可视化**：节点大小、标签粗细、斥力强度、连边宽度均与 priority 挂钩
-- **MiroFish 交互**：粉色高亮选中节点及连边、hover 聚焦、浮动 Node Details 面板
-- **学习状态追踪**：双击节点切换 Not Started → Learning → Mastered
-- **全面板沉浸**：图谱占满整个主面板，工具栏悬浮在上层
-
-### 多源 Journey 系统
-
-- **多 Source 聚合**：上传多份 JD/文章/PDF，合并生成统一技能路书
-- **增量消化**：逐段选择性消化 source 内容到 Journey Roadmap
-- **RAG 智能问答**：基于 vector store 的检索增强聊天，支持中英日西法多语言
-- **Research Todo**：AI 自动联网调研，生成 🔬 research source
-
-### 更多能力
-
-- **Graph / Prose 双视图**：Source 和 Journey 均支持力导向图 / Markdown 切换
-- **Obsidian 导出**：一键导出 `.zip` vault（技能节点 → 独立 `.md` + `[[双链]]`）
-- **Skill Radar 雷达页**：跨 workspace 全局技能索引，掌握进度一目了然
-- **LangSmith 全链路追踪**：每步生成均可观测
+<p align="center">
+  <img src="https://img.shields.io/badge/version-0.9-black?style=flat-square" />
+  <img src="https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react" />
+  <img src="https://img.shields.io/badge/D3.js-v7-f9a03c?style=flat-square&logo=d3dotjs" />
+  <img src="https://img.shields.io/badge/LangGraph-js-1a1a1a?style=flat-square" />
+  <img src="https://img.shields.io/badge/SQLite-WAL-003b57?style=flat-square&logo=sqlite" />
+</p>
 
 ---
 
-## 使用场景
+Paste a job description, resume, or any technical concept. **Ariadne** extracts a skill tree, researches every node online, and generates an interactive radial skill graph + structured Markdown roadmap.
 
-- **JD 解析**：拿到一份岗位要求，不知道从哪学起？生成带优先级的技能路书
-- **简历复习**：简历上写了但没吃透的技术点，面试前快速补课
-- **概念扫盲**：技术文章中出现的新概念，生成结构化知识图谱
-- **Agent 调度**：Claude Code、OpenClaw 等 AI coding agent 可直接通过 CLI 调用
+```
+JD / article / PDF  ──>  Ariadne Engine  ──>  Radial Skill Graph + Markdown Roadbook
+                          │
+                          ├─ ParseInput
+                          ├─ ExtractSkillTree
+                          ├─ ResearchNode (Tavily)
+                          └─ GenerateRoadbook
+```
 
----
+## Radial Skill Graph
 
-## 快速开始
+Inspired by [MiroFish](https://github.com/666ghj/MiroFish)'s Graph Relationship Visualization — reimagined as an **archery target layout**:
 
-### 1. 安装依赖
+```
+          ╭──────── Low ────────╮
+        ╭───── Medium ─────╮    │
+      ╭──── High ────╮     │    │
+      │              │     │    │
+      │    ● core    │  ○  │  · │   ←  priority = distance from center
+      │    skills    │     │    │
+      ╰──────────────╯     │    │
+        ╰──────────────────╯    │
+          ╰─────────────────────╯
+```
+
+- **Radial force layout** — `d3.forceRadial` places High/Medium/Low skills on concentric rings
+- **Expandable sub-skills** — click a node to reveal satellite sub-skill nodes (dashed lines)
+- **Priority = weight** — node size, label weight, charge strength, edge width all scale with priority
+- **Smooth transitions** — 250ms eased transitions on hover focus, click highlight, expand/collapse
+- **MiroFish interactions** — pink `#E91E63` selection highlight, connected-node focus, floating detail panel
+- **Status tracking** — double-click to cycle Not Started → Learning → Mastered
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| **Multi-source Journey** | Upload JDs, articles, PDFs — Ariadne merges them into one unified skill roadmap |
+| **Incremental Digest** | Selectively digest source sections into the Journey roadmap |
+| **RAG Chat** | Vector-store retrieval-augmented Q&A, responds in your language (zh/en/ja/es/fr) |
+| **Research Todo** | AI auto-researches topics online, generates research sources |
+| **Graph / Prose** | Toggle between radial force graph and Markdown rendering |
+| **Obsidian Export** | One-click `.zip` vault with `[[wikilinks]]` between skill nodes |
+| **Skill Radar** | Cross-workspace global skill index with mastery progress |
+| **LangSmith Tracing** | Full observability on every generation step |
+
+## Quick Start
 
 ```bash
 pnpm install
+cp .env.example .env   # fill in API keys
+pnpm dev               # → http://localhost:1420
 ```
 
-### 2. 配置环境变量
-
-```bash
-cp .env.example .env
-```
-
-编辑 `.env`，填入你的 API Key：
+### Environment Variables
 
 ```env
-ANTHROPIC_API_KEY=       # 默认模型，推荐
-OPENAI_API_KEY=          # 可选
-GOOGLE_API_KEY=          # 可选（Gemini）
-TAVILY_API_KEY=          # 必填，用于联网调研
-LANGSMITH_API_KEY=       # 可选，开启 tracing
+GOOGLE_API_KEY=          # Gemini (default model)
+ANTHROPIC_API_KEY=       # Claude (optional)
+OPENAI_API_KEY=          # GPT (optional)
+TAVILY_API_KEY=          # required — web research
+LANGSMITH_API_KEY=       # optional — tracing
 ```
 
-### 3. 启动应用
+### CLI
 
 ```bash
-pnpm dev
-```
-
-打开 http://localhost:1420，粘贴内容，点击「生成路书」。
-
----
-
-## CLI 使用
-
-适合轻量开发者和 AI agent 直接调用：
-
-```bash
-# 基本用法
-pnpm ariadne "Node.js 高级后端工程师 JD 内容..."
-
-# 指定模型
-pnpm ariadne "React, TypeScript, Next.js" -- --provider anthropic
-pnpm ariadne "Python 数据工程师" -- --provider gemini
-
-# 指定输出路径
+pnpm ariadne "Node.js 高级后端工程师 JD..."
+pnpm ariadne "React, TypeScript" -- --provider anthropic
 pnpm ariadne "LangGraph.js" -- --output ./output/langgraph.md
 ```
 
-结果默认保存到 `output/roadbook.md`。
-
----
-
-## 技术栈
-
-| 层 | 技术 |
-|---|---|
-| 前端 | React 19 + TypeScript + Tailwind CSS 4 |
-| 可视化 | D3.js (力导向图 + 径向布局) + Mermaid (脑图) |
-| Agent 编排 | LangGraph.js |
-| LLM | Gemini / Anthropic / OpenAI（可切换） |
-| 联网搜索 | Tavily Search API |
-| 数据层 | SQLite (better-sqlite3, WAL 模式) |
-| 后端 API | Express 5 (本地 REST + SSE 流) |
-| 可观测性 | LangSmith (tracing + evaluation) |
-
-### 工作流
+## Tech Stack
 
 ```
-输入文本 → ParseInput → ExtractSkillTree → ResearchNode → GenerateRoadbook → 交互式图谱 + Markdown
+Frontend      React 19 · TypeScript · Tailwind CSS 4
+Visualization D3.js (radial force graph) · Mermaid (mindmap)
+Agent Engine  LangGraph.js
+LLM           Gemini / Claude / GPT (switchable)
+Search        Tavily Search API
+Database      SQLite (better-sqlite3, WAL mode)
+Backend       Express 5 (REST + SSE streaming)
+Observability LangSmith (tracing + evaluation)
 ```
 
-每一步均通过 LangSmith 全链路追踪。
+## Design
 
----
+UI inspired by [MiroFish](https://github.com/666ghj/MiroFish):
 
-## 前端设计
+- Monochrome palette (`#FAFAFA` / `#1a1a1a`) + dot grid background
+- `ROADBOOK` monospace branding
+- Pink `#E91E63` accent on interactions
+- Frosted glass floating toolbars
+- 10-color category palette
 
-UI 风格参考 [MiroFish](https://github.com/666ghj/MiroFish) 的 Graph Relationship Visualization：
+## Changelog
 
-- 黑白灰简约色系 + 点阵底纹背景
-- `ROADBOOK` 等宽字体品牌标识
-- MiroFish 粉色 (`#E91E63`) 高亮交互
-- 浮动毛玻璃工具栏 + 悬浮详情面板
-- 10 色实体类型调色板
-
----
-
-## 开发
-
-```bash
-# 运行测试
-pnpm test
-
-# 监听模式
-pnpm test:watch
-
-# 构建
-pnpm build
-```
-
----
-
-## 版本历史
-
-| 版本 | 日期 | 主要内容 |
-|---|---|---|
-| v0.9 | 2026-03-15 | MiroFish 风格 UI 全面改造 + 射箭靶心径向技能图谱 + 子技能展开收起 + 聊天多语言支持 + SSE 健壮性 |
-| v0.8 | 2026-03-12 | SQLite 数据层 (better-sqlite3 WAL + 自动迁移) |
+| Version | Date | Highlights |
+|---------|------|------------|
+| **v0.9** | 2026-03-15 | Radial skill graph, MiroFish UI overhaul, sub-skill expand/collapse, multilingual chat, SSE hardening |
+| v0.8 | 2026-03-12 | SQLite data layer (WAL + auto migration) |
 | v0.7 | 2026-03-10 | RAG chat retrieval + GitHub Actions CI |
-| v0.6 | 2026-03-08 | 技能图谱可视化 (D3 force graph) + Skill Radar 页 + Obsidian 导出 + 学习进度追踪 |
-| v0.5 | 2026-03-06 | 实时进度流 + Research 可靠性 + 消化粒度细化 |
-| v0.4 | 2026-03-04 | 多 Source Journey 系统 (生成/消化/Insight/Research Todo/多源 Chat) |
-| v0.1 | 2026-02 | 核心工作流、多模型支持、历史记录、CLI |
+| v0.6 | 2026-03-08 | D3 force graph + Skill Radar + Obsidian export + progress tracking |
+| v0.5 | 2026-03-06 | Real-time progress streaming + research reliability |
+| v0.4 | 2026-03-04 | Multi-source Journey system |
+| v0.1 | 2026-02 | Core workflow, multi-model, CLI |
 
-详见 [TASKS.md](./TASKS.md) 和 [PRD.md](./docs/PRD.md)。
+## License
+
+MIT
