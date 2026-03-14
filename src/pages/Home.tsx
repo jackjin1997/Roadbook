@@ -150,8 +150,6 @@ export default function Home() {
   );
 }
 
-const PUNCTUATION = new Set(["，", "。", ",", ".", "·", "、", "。", "！", "？"]);
-
 function HeroSection({ i, creating, onNew }: { i: ReturnType<typeof t>; creating: boolean; onNew: () => void }) {
   const [typed, setTyped] = useState("");
   const [done, setDone] = useState(false);
