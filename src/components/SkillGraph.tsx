@@ -359,21 +359,25 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange }: Sk
       .attr("opacity", (d) => d.kind === "sub" ? 0.65 : d.priority === "low" ? 0.8 : 1);
 
     // Inner highlight for high priority
-    node.filter((d) => d.priority === "high" && d.kind === "skill")
-      .append("circle").attr("r", (d) => d.radius - 7)
-      .attr("fill", "rgba(255,255,255,0.3)").attr("pointer-events", "none");
+    node.each(function (d) {
+      if (d.priority !== "high" || d.kind !== "skill") return;
+      d3.select(this).append("circle").attr("r", d.radius - 7)
+        .attr("fill", "rgba(255,255,255,0.3)").attr("pointer-events", "none");
+    });
 
     // Expand indicator (+ / −) for skill nodes with sub-skills
-    node.filter((d) => d.kind === "skill" && d.subSkills.length > 0)
-      .append("text")
-      .attr("class", "expand-indicator")
-      .text((d) => expandedIds.has(d.id) ? "−" : "+")
-      .attr("x", (d) => -d.radius - 2).attr("y", -d.radius - 2)
-      .attr("font-size", 11).attr("font-weight", 700)
-      .attr("fill", "#888")
-      .attr("text-anchor", "middle")
-      .attr("pointer-events", "none")
-      .style("font-family", "system-ui");
+    node.each(function (d) {
+      if (d.kind !== "skill" || d.subSkills.length === 0) return;
+      d3.select(this).append("text")
+        .attr("class", "expand-indicator")
+        .text(expandedIds.has(d.id) ? "−" : "+")
+        .attr("x", -d.radius - 2).attr("y", -d.radius - 2)
+        .attr("font-size", 11).attr("font-weight", 700)
+        .attr("fill", "#888")
+        .attr("text-anchor", "middle")
+        .attr("pointer-events", "none")
+        .style("font-family", "system-ui");
+    });
 
     // Status ring
     node.append("circle").attr("class", "status-ring")
@@ -411,8 +415,12 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange }: Sk
         });
       })
       .on("mouseleave", function () {
-        node.selectAll<SVGCircleElement, GraphNode>(".node-circle").attr("stroke", "#fff").attr("stroke-width", (d) => d.kind === "sub" ? 1.5 : d.priority === "high" ? 3.5 : 2.5);
-        linkPath.attr("stroke-opacity", (d) => d.type === "sub" ? 0.6 : 0.7);
+        node.each(function (d) {
+          d3.select(this).select<SVGCircleElement>(".node-circle")
+            .attr("stroke", "#fff")
+            .attr("stroke-width", d.kind === "sub" ? 1.5 : d.priority === "high" ? 3.5 : 2.5);
+        });
+        linkPath.attr("stroke-opacity", (l) => l.type === "sub" ? 0.6 : 0.7);
         node.style("opacity", 1);
       })
       .on("click", (event, d) => {
