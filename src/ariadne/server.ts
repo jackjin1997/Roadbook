@@ -201,7 +201,7 @@ app.get("/models", async (_req, res) => {
 
   // Gemini models (direct Google API)
   if (process.env.GOOGLE_API_KEY) {
-    models.push("gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash");
+    models.push("gemini-3-flash-preview", "gemini-3-pro-preview", "gemini-2.5-pro", "gemini-2.5-flash");
   }
 
   // Try OpenAI-compatible proxy if configured
@@ -221,7 +221,7 @@ app.get("/models", async (_req, res) => {
     } catch { /* proxy unavailable, skip */ }
   }
 
-  if (models.length === 0) models.push("gemini-2.5-flash");
+  if (models.length === 0) models.push("gemini-3-flash-preview");
   res.json({ models });
 });
 
@@ -413,7 +413,7 @@ app.post("/workspaces/:id/generate-journey", async (req, res) => {
     send({ type: "error", error: message });
   } finally {
     res.end();
-    setModelConfig({ provider: "gemini", modelName: "gemini-2.5-flash" });
+    setModelConfig({ provider: "gemini", modelName: "gemini-3-flash-preview" });
   }
 });
 
@@ -528,7 +528,7 @@ app.post("/workspaces/:id/sources/:sourceId/generate", async (req, res) => {
     send({ type: "error", error: message });
   } finally {
     res.end();
-    setModelConfig({ provider: "gemini", modelName: "gemini-2.5-flash" });
+    setModelConfig({ provider: "gemini", modelName: "gemini-3-flash-preview" });
   }
 });
 
