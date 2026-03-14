@@ -56,6 +56,12 @@ vi.mock("../tracing.js", () => ({
   getTracingStatus: vi.fn(() => ({ enabled: false, hasApiKey: false, project: "default" })),
 }));
 
+vi.mock("../rag.js", () => ({
+  ingestSource: vi.fn(async () => 0),
+  retrieve: vi.fn(async () => []),
+  removeSource: vi.fn(),
+}));
+
 // ── Test server setup ─────────────────────────────────────────────────────────
 
 let baseUrl: string;
@@ -77,6 +83,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  // Close SQLite before removing tmpDir
+  const storeModule = await import("../store.js");
+  storeModule.closeDb();
   await new Promise<void>((resolve) => server.close(() => resolve()));
   rmSync(tmpDir, { recursive: true, force: true });
   vi.unstubAllEnvs();

@@ -1,8 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
-import { join } from "path";
+
 import multer from "multer";
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
@@ -14,6 +13,7 @@ const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
 import { generateRoadbook, generateJourneyRoadbook } from "./workflow.js";
 import { ingestSource, retrieve, removeSource } from "./rag.js";
+import * as store from "./store.js";
 import { chatStream, extractRoadbookUpdate, stripRoadbookBlock } from "./chat.js";
 import type { ChatMessage } from "./chat.js";
 import { setModelConfig, inferProvider, getModel } from "./config.js";
@@ -72,50 +72,18 @@ export interface Workspace {
   skillProgress: Record<string, SkillStatus>;
 }
 
-// ── Store ────────────────────────────────────────────────────────────────────
-
-const DATA_DIR = process.env.ARIADNE_DATA_DIR ?? join(process.cwd(), "data");
-const STORE_FILE = join(DATA_DIR, "workspaces.json");
+// ── Store (SQLite-backed) ────────────────────────────────────────────────────
 
 function loadStore(): Workspace[] {
-  try {
-    if (!existsSync(STORE_FILE)) return [];
-    const raw = JSON.parse(readFileSync(STORE_FILE, "utf-8")) as Workspace[];
-    // Migrate old data: fill in missing fields
-    return raw.map((w) => ({
-      ...w,
-      roadmap: w.roadmap ?? null,
-      insights: w.insights ?? [],
-      researchTodos: w.researchTodos ?? [],
-      skillProgress: w.skillProgress ?? {},
-      sources: w.sources.map((s) => ({
-        ...s,
-        origin: s.origin ?? ("external" as const),
-        digestedSegmentIds: s.digestedSegmentIds ?? [],
-      })),
-    }));
-  } catch {
-    return [];
-  }
-}
-
-function saveStore(workspaces: Workspace[]) {
-  if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
-  writeFileSync(STORE_FILE, JSON.stringify(workspaces, null, 2), "utf-8");
+  return store.loadAll();
 }
 
 function findWorkspace(id: string): Workspace | undefined {
-  return loadStore().find((w) => w.id === id);
+  return store.findById(id);
 }
 
 function updateWorkspace(updated: Workspace) {
-  const all = loadStore();
-  const idx = all.findIndex((w) => w.id === updated.id);
-  if (idx === -1) return false;
-  updated.updatedAt = Date.now();
-  all[idx] = updated;
-  saveStore(all);
-  return true;
+  return store.updateWorkspace(updated);
 }
 
 function uid() {
@@ -310,8 +278,7 @@ app.post("/workspaces", (req, res) => {
     researchTodos: [],
     skillProgress: {},
   };
-  const all = loadStore();
-  saveStore([workspace, ...all]);
+  store.insertWorkspace(workspace);
   res.status(201).json(workspace);
 });
 
@@ -334,8 +301,7 @@ app.patch("/workspaces/:id", (req, res) => {
 
 // Delete workspace
 app.delete("/workspaces/:id", (req, res) => {
-  const all = loadStore().filter((w) => w.id !== req.params.id);
-  saveStore(all);
+  store.deleteWorkspace(req.params.id);
   res.json({ ok: true });
 });
 
