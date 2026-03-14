@@ -64,4 +64,6 @@ export interface WorkspaceListItem {
   updatedAt: number;
   sourceCount: number;
   generatedCount: number;
+  skillCount: number;
+  masteredCount: number;
 }

@@ -276,14 +276,22 @@ app.get("/models", async (_req, res) => {
 // List workspaces (metadata only)
 app.get("/workspaces", (_req, res) => {
   const all = loadStore();
-  const list = all.map(({ id, title, createdAt, updatedAt, sources }) => ({
-    id,
-    title,
-    createdAt,
-    updatedAt,
-    sourceCount: sources.length,
-    generatedCount: sources.filter((s) => s.roadmap !== null).length,
-  }));
+  const list = all.map(({ id, title, createdAt, updatedAt, sources, roadmap, skillProgress }) => {
+    const skillNames = new Set<string>();
+    for (const node of roadmap?.skillTree ?? []) skillNames.add(node.name);
+    for (const s of sources) for (const node of s.roadmap?.skillTree ?? []) skillNames.add(node.name);
+    const mastered = [...skillNames].filter((n) => skillProgress[n] === "mastered").length;
+    return {
+      id,
+      title,
+      createdAt,
+      updatedAt,
+      sourceCount: sources.length,
+      generatedCount: sources.filter((s) => s.roadmap !== null).length,
+      skillCount: skillNames.size,
+      masteredCount: mastered,
+    };
+  });
   res.json(list);
 });
 
@@ -716,6 +724,44 @@ app.patch("/workspaces/:id/skill-progress", (req, res) => {
   }
   updateWorkspace(workspace);
   res.json({ skillProgress: workspace.skillProgress });
+});
+
+// ── Global Skill Index ─────────────────────────────────────────────────────
+
+app.get("/skill-index", (_req, res) => {
+  const workspaces = loadStore();
+  const skillMap = new Map<string, {
+    name: string;
+    category: string;
+    priority: string;
+    workspaces: { id: string; title: string }[];
+    status: SkillStatus | "not_started";
+  }>();
+
+  for (const ws of workspaces) {
+    const trees = [
+      ...(ws.roadmap?.skillTree ?? []),
+      ...ws.sources.flatMap((s) => s.roadmap?.skillTree ?? []),
+    ];
+    for (const node of trees) {
+      const existing = skillMap.get(node.name);
+      if (existing) {
+        if (!existing.workspaces.some((w) => w.id === ws.id)) {
+          existing.workspaces.push({ id: ws.id, title: ws.title });
+        }
+      } else {
+        skillMap.set(node.name, {
+          name: node.name,
+          category: node.category,
+          priority: node.priority,
+          workspaces: [{ id: ws.id, title: ws.title }],
+          status: ws.skillProgress[node.name] ?? "not_started",
+        });
+      }
+    }
+  }
+
+  res.json({ skills: [...skillMap.values()] });
 });
 
 export { app };

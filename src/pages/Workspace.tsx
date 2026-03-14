@@ -25,6 +25,7 @@ import {
 } from "../api";
 import type { ChatMessage, GenerationProgress } from "../api";
 import type { Workspace, Source, Insight, ResearchTodo } from "../types";
+import JSZip from "jszip";
 import ResizeHandle from "../components/ResizeHandle";
 import { useLanguage } from "../contexts/LanguageContext";
 import { t, LANGUAGES } from "../i18n";
@@ -51,6 +52,54 @@ function downloadMarkdown(markdown: string, filename: string) {
   const a = document.createElement("a");
   a.href = url;
   a.download = filename.replace(/[^a-zA-Z0-9\u4e00-\u9fff_-]/g, "_") + ".md";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function downloadObsidianVault(title: string, markdown: string, skillTree?: import("../types").SkillNode[]) {
+  const zip = new JSZip();
+  const safeName = (s: string) => s.replace(/[/\\:*?"<>|]/g, "_");
+
+  // Main index file
+  zip.file(`${safeName(title)}.md`, markdown);
+
+  // One file per skill node with wikilinks
+  if (skillTree?.length) {
+    for (const node of skillTree) {
+      const lines: string[] = [];
+      lines.push(`# ${node.name}`);
+      lines.push("");
+      lines.push(`**Category:** ${node.category}  `);
+      lines.push(`**Priority:** ${node.priority}`);
+      lines.push("");
+      if (node.description) {
+        lines.push(node.description);
+        lines.push("");
+      }
+      if (node.subSkills.length) {
+        lines.push("## Sub-skills");
+        for (const s of node.subSkills) lines.push(`- ${s}`);
+        lines.push("");
+      }
+      if (node.relatedConcepts.length) {
+        lines.push("## Related");
+        const nodeNames = new Set(skillTree.map((n) => n.name));
+        for (const r of node.relatedConcepts) {
+          lines.push(`- ${nodeNames.has(r) ? `[[${r}]]` : r}`);
+        }
+        lines.push("");
+      }
+      lines.push(`---`);
+      lines.push(`Back to [[${safeName(title)}]]`);
+      zip.file(`${safeName(node.name)}.md`, lines.join("\n"));
+    }
+  }
+
+  const blob = await zip.generateAsync({ type: "blob" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = safeName(title) + "_vault.zip";
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -560,6 +609,12 @@ export default function WorkspacePage() {
                         style={{ border: "1px solid var(--color-border)", color: "var(--color-text-muted)", background: "var(--color-surface)" }}
                         title="Export as Markdown">
                         .md
+                      </button>
+                      <button onClick={() => downloadObsidianVault(workspace.title || "journey", workspace.roadmap!.markdown, workspace.roadmap!.skillTree)}
+                        className="text-xs px-2.5 py-1.5 rounded-lg transition-colors"
+                        style={{ border: "1px solid var(--color-border)", color: "var(--color-text-muted)", background: "var(--color-surface)" }}
+                        title="Export as Obsidian Vault (.zip)">
+                        Obsidian
                       </button>
                       <button onClick={handleGenerateJourney} disabled={generatingJourney}
                         className="text-xs px-3 py-1.5 rounded-lg disabled:opacity-40"

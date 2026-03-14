@@ -191,6 +191,17 @@ describe("Workspace CRUD", () => {
     expect(getStatus).toBe(404);
   });
 
+  it("GET /workspaces returns skillCount and masteredCount", async () => {
+    const { data: ws } = await post<{ id: string }>("/workspaces", { title: "Skills List Test" });
+    // Add source + generate to get skill tree
+    await post(`/workspaces/${ws.id}/sources`, { text: "Learn React", language: "English" });
+    const { data: list } = await get<{ id: string; skillCount: number; masteredCount: number }[]>("/workspaces");
+    const item = list.find((w) => w.id === ws.id);
+    expect(item).toBeDefined();
+    expect(typeof item!.skillCount).toBe("number");
+    expect(typeof item!.masteredCount).toBe("number");
+  });
+
   it("GET /workspaces returns sourceCount and generatedCount", async () => {
     const { data } = await get<Array<{ id: string; sourceCount: number; generatedCount: number }>>("/workspaces");
     const ws = data.find((w) => w.id === workspaceId);
@@ -486,6 +497,35 @@ describe("Skill Progress", () => {
   it("returns 400 when skillName is missing", async () => {
     const { status } = await patch(`/workspaces/${workspaceId}/skill-progress`, { status: "learning" });
     expect(status).toBe(400);
+  });
+});
+
+describe("Global Skill Index", () => {
+  let wsId: string;
+
+  it("GET /skill-index returns empty skills when no roadmaps exist", async () => {
+    const { data } = await get<{ skills: unknown[] }>("/skill-index");
+    expect(Array.isArray(data.skills)).toBe(true);
+  });
+
+  it("GET /skill-index returns skills after generation", async () => {
+    const { data: ws } = await post<{ id: string }>("/workspaces", { title: "Skill Index Test" });
+    wsId = ws.id;
+    const { data: source } = await post<{ id: string }>(`/workspaces/${wsId}/sources`, { text: "Learn React", language: "English" });
+    await ssePost(`/workspaces/${wsId}/sources/${source.id}/generate`);
+
+    const { data } = await get<{ skills: { name: string; category: string; workspaces: { id: string }[] }[] }>("/skill-index");
+    expect(data.skills.length).toBeGreaterThan(0);
+    const reactSkill = data.skills.find((s) => s.name === "React");
+    expect(reactSkill).toBeDefined();
+    expect(reactSkill!.workspaces.some((w) => w.id === wsId)).toBe(true);
+  });
+
+  it("skill-index reflects skill progress status", async () => {
+    await patch(`/workspaces/${wsId}/skill-progress`, { skillName: "React", status: "mastered" });
+    const { data } = await get<{ skills: { name: string; status: string }[] }>("/skill-index");
+    const reactSkill = data.skills.find((s) => s.name === "React");
+    expect(reactSkill?.status).toBe("mastered");
   });
 });
 

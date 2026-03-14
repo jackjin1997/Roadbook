@@ -305,6 +305,19 @@ function WorkspaceCard({
             </span>
           )}
         </p>
+        {ws.skillCount > 0 && (
+          <div className="flex items-center gap-1.5">
+            <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: "var(--color-border)" }}>
+              <div className="h-full rounded-full transition-all" style={{
+                width: `${Math.round((ws.masteredCount / ws.skillCount) * 100)}%`,
+                background: "var(--color-accent)",
+              }} />
+            </div>
+            <span className="text-[10px] shrink-0" style={{ color: "var(--color-text-muted)" }}>
+              {ws.masteredCount}/{ws.skillCount}
+            </span>
+          </div>
+        )}
         <p className="text-xs" style={{ color: "var(--color-text-muted)", opacity: 0.5 }}>
           {formatDate(ws.updatedAt)}
         </p>

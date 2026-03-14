@@ -245,6 +245,18 @@ export const runResearchTodo = (workspaceId: string, todoId: string) =>
     { method: "POST", body: JSON.stringify({}) },
   );
 
+// Global skill index
+export interface SkillIndexEntry {
+  name: string;
+  category: string;
+  priority: string;
+  workspaces: { id: string; title: string }[];
+  status: import("./types").SkillStatus;
+}
+
+export const getSkillIndex = () =>
+  req<{ skills: SkillIndexEntry[] }>("/skill-index");
+
 // Skill progress
 export const updateSkillProgress = (
   workspaceId: string,
