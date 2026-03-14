@@ -104,21 +104,25 @@ async function downloadObsidianVault(title: string, markdown: string, skillTree?
   URL.revokeObjectURL(url);
 }
 
-// Parse markdown into sections by ## headings for digest selection
-function parseMarkdownSections(md: string): { id: string; heading: string; content: string }[] {
+// Parse markdown into sections by ## and ### headings for digest selection
+function parseMarkdownSections(md: string): { id: string; heading: string; content: string; level: number }[] {
   const lines = md.split("\n");
-  const sections: { id: string; heading: string; content: string }[] = [];
-  let current: { heading: string; lines: string[] } | null = null;
+  const sections: { id: string; heading: string; content: string; level: number }[] = [];
+  let current: { heading: string; lines: string[]; level: number } | null = null;
 
   for (const line of lines) {
-    if (line.startsWith("## ")) {
-      if (current) sections.push({ id: current.heading, heading: current.heading, content: current.lines.join("\n").trim() });
-      current = { heading: line.slice(3).trim(), lines: [line] };
+    const h2 = line.startsWith("## ") && !line.startsWith("### ");
+    const h3 = line.startsWith("### ");
+    if (h2 || h3) {
+      if (current) sections.push({ id: current.heading, heading: current.heading, content: current.lines.join("\n").trim(), level: current.level });
+      const level = h3 ? 3 : 2;
+      const heading = line.replace(/^#{2,3}\s+/, "").trim();
+      current = { heading, lines: [line], level };
     } else {
       current?.lines.push(line);
     }
   }
-  if (current) sections.push({ id: current.heading, heading: current.heading, content: current.lines.join("\n").trim() });
+  if (current) sections.push({ id: current.heading, heading: current.heading, content: current.lines.join("\n").trim(), level: current.level });
   return sections;
 }
 
@@ -806,10 +810,11 @@ function DigestableRoadmap({ markdown, digestedIds, checkedIds, onToggle }: {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {sections.map((section) => {
         const digested = digestedIds.includes(section.id);
         const checked = checkedIds.has(section.id);
+        const isSubsection = section.level === 3;
         return (
           <div key={section.id}
             onClick={() => !digested && onToggle(section.id)}
@@ -819,6 +824,7 @@ function DigestableRoadmap({ markdown, digestedIds, checkedIds, onToggle }: {
               background: checked ? "color-mix(in srgb, var(--color-accent) 8%, var(--color-surface))" : "var(--color-surface)",
               opacity: digested ? 0.45 : 1,
               cursor: digested ? "default" : "pointer",
+              marginLeft: isSubsection ? 20 : 0,
             }}>
             <div className="flex items-center gap-2 mb-2">
               <div className="w-4 h-4 rounded flex items-center justify-center shrink-0 text-[10px]"
@@ -828,7 +834,7 @@ function DigestableRoadmap({ markdown, digestedIds, checkedIds, onToggle }: {
                 }}>
                 {digested ? "✓" : checked ? "✓" : ""}
               </div>
-              <span className="text-xs font-semibold" style={{ color: "var(--color-text)" }}>{section.heading}</span>
+              <span className={`text-xs ${isSubsection ? "" : "font-semibold"}`} style={{ color: "var(--color-text)" }}>{section.heading}</span>
               {digested && <span className="text-[9px] ml-auto" style={{ color: "#10b981" }}>digested</span>}
             </div>
             <div className="prose prose-xs max-w-none" style={{ pointerEvents: "none" }}>
