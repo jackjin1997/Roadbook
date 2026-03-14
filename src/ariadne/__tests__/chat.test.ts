@@ -97,6 +97,19 @@ describe("buildChatMessages", () => {
     expect(last.content).toBe("update the roadbook");
   });
 
+  it("includes language instruction in system prompt", () => {
+    const msgs = buildChatMessages({ ...baseOpts, language: "Chinese" });
+    const system = msgs.find((m) => m._getType() === "system");
+    expect(system?.content).toContain("Chinese");
+    expect(system?.content).toContain("Always respond in");
+  });
+
+  it("defaults language to English when not provided", () => {
+    const msgs = buildChatMessages(baseOpts);
+    const system = msgs.find((m) => m._getType() === "system");
+    expect(system?.content).toContain("English");
+  });
+
   it("respects budget: does not exceed 60k chars in system prompt", () => {
     const bigSnapshot = "x".repeat(30_000);
     const msgs = buildChatMessages({
