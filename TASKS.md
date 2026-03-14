@@ -142,11 +142,15 @@
 ## Phase 6 — 知识网络
 
 ### T19 · 技能图谱可视化
-- [ ] D3 force graph 替代/补充 Mermaid mindmap
-- [ ] 节点 = 技能，边 = relatedConcepts 关联
-- [ ] 点击节点 → 展示来源 source、关联 insights、research todos
-- [ ] 节点大小 = priority，颜色 = 学习状态
-- [ ] 支持拖拽、缩放、搜索
+- [x] D3 force graph 替代/补充 Mermaid mindmap
+- [x] 射箭靶心径向布局 (d3.forceRadial — High→中心, Medium→中环, Low→外环)
+- [x] 节点 = 技能，边 = relatedConcepts + category 关联
+- [x] 点击节点展开/收起子技能卫星节点（虚线连接）
+- [x] 节点大小/标签粗细/斥力/连边宽度 = priority 权重
+- [x] MiroFish 风格交互：粉色高亮、hover 聚焦、浮动 Node Details 面板
+- [x] 双击切换学习状态 (Not Started → Learning → Mastered)
+- [x] Source 和 Journey 均支持 Graph/Prose 切换，默认 Graph 全面板视图
+- [x] 支持拖拽、缩放、Edge Labels 开关
 
 ### T20 · Workspace 间技能关联
 - [ ] 全局技能索引（跨 workspace 扫描同名技能节点）
@@ -170,6 +174,29 @@
 - [ ] Annotation queue 人工评审流程
 - [ ] Pairwise 评估：prompt 版本 A/B 对比
 - [ ] 前端 test coverage 补齐（Workspace.tsx 890 行无测试）
+
+---
+
+## Phase 8 — UI 全面改造 (v0.9)
+
+### T23 · MiroFish 风格 UI 改造
+- [x] 全局配色：紫色 → 黑白灰简约色系 + 点阵底纹背景
+- [x] 品牌标识：`ROADBOOK` 等宽字体 + 大写
+- [x] 按钮/卡片/排版全面更新（gradient → solid black）
+- [x] MermaidDiagram 配色同步更新
+
+### T24 · 射箭靶心径向技能图谱
+- [x] 同心圆靶心布局 (d3.forceRadial)
+- [x] 子技能展开/收起（点击节点 → 卫星子节点 + 虚线）
+- [x] Priority 权重可视化（节点大小/标签/斥力/连边）
+- [x] Source 视图增加 Graph/Prose 切换
+- [x] Journey 视图默认 Graph，工具栏悬浮
+
+### T25 · 聊天多语言支持 + SSE 健壮性
+- [x] 前端传 language 到 `/chat/stream` 接口
+- [x] System prompt 增加 `Always respond in ${lang}` 指令
+- [x] SSE JSON.parse try-catch 防止 malformed line 崩溃
+- [x] Stream 结束无 done event 时 reject 而非静默挂起
 
 ---
 
@@ -202,3 +229,6 @@
 - [x] T14 · RAG 分块（in-memory vector store + OpenAI embeddings + chat retrieval）
 - [x] T21 · 数据层升级（better-sqlite3 WAL 模式 + JSON→SQLite 自动迁移 + 11 store 测试）
 - [x] T22 · CI 流水线（GitHub Actions: type-check + unit tests + coverage）
+- [x] T23 · MiroFish 风格 UI 全面改造（黑白灰配色 + 点阵底纹 + 等宽品牌字体）
+- [x] T24 · 射箭靶心径向技能图谱（d3.forceRadial + 子技能展开收起 + 权重可视化）
+- [x] T25 · 聊天多语言支持 + SSE 健壮性（language 参数 + try-catch 防崩）
