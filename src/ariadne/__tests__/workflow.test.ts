@@ -108,4 +108,69 @@ describe("generateRoadbook (full workflow integration)", () => {
       .find((m) => m.role === "user");
     expect(userMsg?.content).toContain("TypeScript generics");
   });
+
+  it("calls onProgress for each stage", async () => {
+    const { generateRoadbook } = await import("../workflow.js");
+    const onProgress = vi.fn();
+    await generateRoadbook("test", "English", onProgress);
+    const stages = onProgress.mock.calls.map(([p]: any) => p.stage);
+    expect(stages).toContain("parseInput");
+    expect(stages).toContain("extractSkillTree");
+    expect(stages).toContain("researchSkills");
+    expect(stages).toContain("generateRoadbook");
+  });
+
+  it("returns failedSkills when research partially fails", async () => {
+    // Override Tavily mock to fail
+    const tavilyModule = await import("@langchain/tavily");
+    (tavilyModule.TavilySearchAPIWrapper as any).mockImplementation(function (this: any) {
+      this.rawResults = vi.fn().mockRejectedValue(new Error("search failed"));
+    });
+
+    const { generateRoadbook } = await import("../workflow.js");
+    const result = await generateRoadbook("test");
+    expect(result.failedSkills).toBeDefined();
+    expect(result.failedSkills!.length).toBeGreaterThan(0);
+  });
+});
+
+describe("generateJourneyRoadbook (multi-source)", () => {
+  it("returns markdown and merged skill tree", async () => {
+    const { generateJourneyRoadbook } = await import("../workflow.js");
+    const result = await generateJourneyRoadbook([
+      { text: "React developer JD", language: "English" },
+      { text: "Node.js backend JD", language: "English" },
+    ]);
+    expect(typeof result.markdown).toBe("string");
+    expect(result.markdown.length).toBeGreaterThan(0);
+    expect(Array.isArray(result.skillTree)).toBe(true);
+  });
+
+  it("throws for empty snapshots", async () => {
+    const { generateJourneyRoadbook } = await import("../workflow.js");
+    await expect(generateJourneyRoadbook([])).rejects.toThrow("No snapshots");
+  });
+
+  it("calls onProgress for all stages", async () => {
+    const { generateJourneyRoadbook } = await import("../workflow.js");
+    const onProgress = vi.fn();
+    await generateJourneyRoadbook(
+      [{ text: "test source", language: "Chinese" }],
+      onProgress,
+    );
+    const stages = onProgress.mock.calls.map(([p]: any) => p.stage);
+    expect(stages).toContain("extractSkillTree");
+    expect(stages).toContain("mergeSkillTrees");
+    expect(stages).toContain("researchSkills");
+    expect(stages).toContain("generateRoadbook");
+  });
+
+  it("produces valid markdown output", async () => {
+    const { generateJourneyRoadbook } = await import("../workflow.js");
+    const result = await generateJourneyRoadbook([
+      { text: "content about AI", language: "English" },
+    ]);
+    expect(result.markdown).toContain("# ");
+    expect(result.markdown).toContain("LangGraph.js");
+  });
 });

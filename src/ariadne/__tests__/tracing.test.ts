@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { isTracingEnabled, getTracingStatus } from "../tracing.js";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { isTracingEnabled, getTracingStatus, logTracingStatus } from "../tracing.js";
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -87,5 +87,31 @@ describe("getTracingStatus", () => {
     expect(status.enabled).toBe(true);
     expect(status.hasApiKey).toBe(true);
     expect(status.project).toBe("my-project");
+  });
+});
+
+describe("logTracingStatus", () => {
+  it("logs enabled message when tracing is on", () => {
+    setEnv({ LANGSMITH_TRACING: "true", LANGSMITH_API_KEY: "ls-key", LANGSMITH_PROJECT: "roadbook" });
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    logTracingStatus();
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining("tracing enabled"));
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining("roadbook"));
+    spy.mockRestore();
+  });
+
+  it("logs warning when API key set but tracing not enabled", () => {
+    setEnv({ LANGSMITH_API_KEY: "ls-key" });
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    logTracingStatus();
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining("LANGSMITH_TRACING"));
+    spy.mockRestore();
+  });
+
+  it("logs disabled message when no API key", () => {
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    logTracingStatus();
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining("disabled"));
+    spy.mockRestore();
   });
 });
