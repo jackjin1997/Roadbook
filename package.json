@@ -1,7 +1,7 @@
 {
   "name": "roadbook",
   "private": true,
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "输入一份 JD，Ariadne 为你生成专属的通关路书",
   "type": "module",
   "packageManager": "pnpm@10.29.1",

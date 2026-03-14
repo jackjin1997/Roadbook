@@ -199,3 +199,5 @@
 - [x] T16 · Obsidian vault 导出（JSZip + wikilinks，Journey 导出按钮）
 - [x] T20 · Workspace 间技能关联（GET /skill-index API + Home 页进度条 + Skill Radar 页面）
 - [x] T13 · 消化粒度细化（## + ### 双级分段，子节 indent，独立 checkbox）
+- [x] T14 · RAG 分块（in-memory vector store + OpenAI embeddings + chat retrieval）
+- [x] T22 · CI 流水线（GitHub Actions: type-check + unit tests + coverage）

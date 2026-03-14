@@ -13,6 +13,7 @@ import mammoth from "mammoth";
 const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
 import { generateRoadbook, generateJourneyRoadbook } from "./workflow.js";
+import { ingestSource, retrieve, removeSource } from "./rag.js";
 import { chatStream, extractRoadbookUpdate, stripRoadbookBlock } from "./chat.js";
 import type { ChatMessage } from "./chat.js";
 import { setModelConfig, inferProvider, getModel } from "./config.js";
@@ -418,7 +419,9 @@ app.post("/workspaces/:id/sources/file", upload.single("file"), async (req, res)
 app.delete("/workspaces/:id/sources/:sourceId", (req, res) => {
   const workspace = findWorkspace(req.params.id);
   if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
+  const removed = workspace.sources.find((s) => s.id === req.params.sourceId);
   workspace.sources = workspace.sources.filter((s) => s.id !== req.params.sourceId);
+  if (removed) removeSource(workspace.id, removed.reference);
   updateWorkspace(workspace);
   res.json({ ok: true });
 });
@@ -487,6 +490,21 @@ app.post("/workspaces/:id/chat/stream", async (req, res) => {
   const send = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
   try {
+    // RAG: lazily ingest sources, then retrieve relevant chunks
+    let ragContext = "";
+    try {
+      await Promise.all(
+        activeSources.map((s) => ingestSource(workspace.id, s.reference, s.snapshot))
+      );
+      const chunks = await retrieve(workspace.id, userMessage, 5);
+      if (chunks.length > 0) {
+        ragContext = "\n\n## Relevant Excerpts (RAG)\n" +
+          chunks.map((c) => `### From: ${c.sourceRef}\n${c.text}`).join("\n\n");
+      }
+    } catch {
+      // RAG is best-effort — fall back to static context if embeddings fail
+    }
+
     let full = "";
     for await (const chunk of chatStream({
       workspaceTitle: workspace.title,
@@ -496,7 +514,7 @@ app.post("/workspaces/:id/chat/stream", async (req, res) => {
         snapshot: s.snapshot,
         roadmapMarkdown: s.roadmap?.markdown ?? null,
       })),
-      insights: workspace.insights.map((i) => i.content),
+      insights: [...workspace.insights.map((i) => i.content), ...(ragContext ? [ragContext] : [])],
       history,
       userMessage,
     })) {
