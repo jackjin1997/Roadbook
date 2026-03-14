@@ -6,14 +6,14 @@ import { useLanguage } from "../contexts/LanguageContext";
 import { t, LANGUAGES } from "../i18n";
 
 const CARD_GRADIENTS = [
-  "linear-gradient(135deg, #c4b9f8, #a5b4fc)",
-  "linear-gradient(135deg, #a5c8f0, #c4b9f8)",
-  "linear-gradient(135deg, #a7d9c8, #a5c8f0)",
-  "linear-gradient(135deg, #f5c9a0, #f0a8b8)",
-  "linear-gradient(135deg, #f0a8b8, #c4b9f8)",
-  "linear-gradient(135deg, #a5c8f0, #9dc8b8)",
-  "linear-gradient(135deg, #c4e0a8, #a7d9c8)",
-  "linear-gradient(135deg, #f8d0a8, #c4b9f8)",
+  "#1a1a1a",
+  "#2c2c2c",
+  "#3a3a3a",
+  "#1a1a1a",
+  "#2c2c2c",
+  "#3a3a3a",
+  "#1a1a1a",
+  "#2c2c2c",
 ];
 
 function cardGradient(id: string) {
@@ -67,10 +67,9 @@ export default function Home() {
       {/* Header */}
       <header
         className="flex items-center px-8 py-4 border-b"
-        style={{ borderColor: "var(--color-border)" }}
+        style={{ borderColor: "var(--color-border)", background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)" }}
       >
-        <span className="text-xl font-bold gradient-text">Roadbook</span>
-        <span className="ml-2 text-sm" style={{ color: "var(--color-text-muted)" }}>路书</span>
+        <span className="text-base font-bold gradient-text" style={{ fontFamily: "'JetBrains Mono', 'SF Mono', monospace", letterSpacing: "0.12em" }}>ROADBOOK</span>
         <div className="ml-auto flex items-center gap-3">
           <button
             onClick={() => navigate("/skills")}
@@ -182,21 +181,14 @@ function HeroSection({ i, creating, onNew }: { i: ReturnType<typeof t>; creating
 
   return (
     <div className="text-center relative" style={{ padding: "80px 0 64px" }}>
-      {/* Thin top rule */}
-      <div style={{
-        position: "absolute", top: 0, left: "50%",
-        transform: "translateX(-50%)",
-        width: 40, height: 1,
-        background: "var(--color-accent)", opacity: 0.4,
-      }} />
-
       {/* Brand label */}
       <div className="anim-fade-up" style={{ marginBottom: 32 }}>
         <span style={{
           fontSize: 11, letterSpacing: "0.25em", textTransform: "uppercase",
-          color: "var(--color-accent)", fontWeight: 600, opacity: 0.8,
+          color: "#888", fontWeight: 600,
+          fontFamily: "'JetBrains Mono', 'SF Mono', monospace",
         }}>
-          Roadbook &nbsp;·&nbsp; 路书
+          Roadbook &nbsp;/&nbsp; 路书
         </span>
       </div>
 
@@ -212,8 +204,7 @@ function HeroSection({ i, creating, onNew }: { i: ReturnType<typeof t>; creating
       }}>
         {typed.split("").map((char, idx) => (
           <span key={idx} style={{
-            color: PUNCTUATION.has(char) ? "var(--color-accent)" : "inherit",
-            opacity: 1,
+            color: "inherit",
           }}>
             {char}
           </span>
@@ -280,11 +271,11 @@ function WorkspaceCard({
         transition: "transform 0.15s, box-shadow 0.15s, border-color 0.15s",
       }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.boxShadow = `0 6px 24px rgba(109,94,240,0.12)`;
-        (e.currentTarget as HTMLElement).style.borderColor = "var(--color-accent)";
+        (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 24px rgba(0,0,0,0.1)`;
+        (e.currentTarget as HTMLElement).style.borderColor = "#999";
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 4px rgba(0,0,0,0.06)";
+        (e.currentTarget as HTMLElement).style.boxShadow = "0 2px 8px rgba(0,0,0,0.04)";
         (e.currentTarget as HTMLElement).style.borderColor = "var(--color-border)";
       }}
     >

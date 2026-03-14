@@ -20,6 +20,7 @@ interface BuildOptions {
   insights: string[];
   history: ChatMessage[];
   userMessage: string;
+  language?: string;
 }
 
 const BUDGET = 60_000;
@@ -71,9 +72,11 @@ function buildContext(
 }
 
 export function buildChatMessages(opts: BuildOptions): BaseMessage[] {
-  const { workspaceTitle, journeyRoadmap, sources, insights, history, userMessage } = opts;
+  const { workspaceTitle, journeyRoadmap, sources, insights, history, userMessage, language } = opts;
 
   const context = buildContext(journeyRoadmap, sources, insights);
+
+  const lang = language || "English";
 
   let system = `You are Ariadne, an AI assistant embedded in Roadbook — a learning roadmap generator.
 You are helping the user with their journey: "${workspaceTitle}".
@@ -83,7 +86,9 @@ You can:
 - Suggest improvements or additions to the roadbook
 - Generate an updated roadbook when asked
 
-If the user asks you to update or rewrite the roadbook, output the full updated Markdown wrapped in <roadbook>...</roadbook> tags. Otherwise reply normally.`;
+If the user asks you to update or rewrite the roadbook, output the full updated Markdown wrapped in <roadbook>...</roadbook> tags. Otherwise reply normally.
+
+IMPORTANT: Always respond in **${lang}**. Match the user's language.`;
 
   if (context) system += `\n\n${context}`;
 

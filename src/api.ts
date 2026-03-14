@@ -82,19 +82,21 @@ export function streamChatMessage(
   messages: ChatMessage[],
   sourceIds: string[] | undefined,
   onChunk: (chunk: string) => void,
+  language?: string,
 ): Promise<{ reply: string; roadbookUpdated: boolean; roadmap: import("./types").Roadmap | null }> {
   return new Promise(async (resolve, reject) => {
     try {
       const res = await fetch(`${API}/workspaces/${workspaceId}/chat/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages, sourceIds }),
+        body: JSON.stringify({ messages, sourceIds, language }),
       });
       if (!res.ok || !res.body) { reject(new Error(`HTTP ${res.status}`)); return; }
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      let resolved = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -104,12 +106,17 @@ export function streamChatMessage(
         buffer = lines.pop()!;
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
-          const data = JSON.parse(line.slice(6));
-          if (data.error) { reject(new Error(data.error)); return; }
-          if (data.chunk) onChunk(data.chunk);
-          if (data.done) resolve({ reply: data.reply, roadbookUpdated: data.roadbookUpdated, roadmap: data.roadmap });
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.error) { reject(new Error(data.error)); return; }
+            if (data.chunk) onChunk(data.chunk);
+            if (data.done) { resolved = true; resolve({ reply: data.reply, roadbookUpdated: data.roadbookUpdated, roadmap: data.roadmap }); }
+          } catch {
+            // skip malformed SSE lines
+          }
         }
       }
+      if (!resolved) reject(new Error("Stream ended without done event"));
     } catch (e) {
       reject(e);
     }

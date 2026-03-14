@@ -10,16 +10,16 @@ function ensureInit() {
     startOnLoad: false,
     theme: "base",
     themeVariables: {
-      primaryColor: "#ede9fb",
-      primaryTextColor: "#18152e",
-      primaryBorderColor: "#c4b9f8",
-      lineColor: "#b5a8f0",
-      secondaryColor: "#f6f5fb",
+      primaryColor: "#F5F5F5",
+      primaryTextColor: "#1a1a1a",
+      primaryBorderColor: "#E0E0E0",
+      lineColor: "#C0C0C0",
+      secondaryColor: "#FAFAFA",
       tertiaryColor: "#ffffff",
-      mainBkg: "#ede9fb",
-      nodeBorder: "#c4b9f8",
-      nodeTextColor: "#18152e",
-      edgeLabelBackground: "#f8f7ff",
+      mainBkg: "#F5F5F5",
+      nodeBorder: "#E0E0E0",
+      nodeTextColor: "#1a1a1a",
+      edgeLabelBackground: "#fff",
       fontSize: "13px",
     },
     fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif',
@@ -143,9 +143,9 @@ export function MermaidDiagram({ code }: { code: string }) {
     return <pre className="mermaid-fallback"><code>{code}</code></pre>;
   }
 
-  // Section tint — matches mermaid node palette
-  const TINT = "#f5f3ff";
-  const TINT0 = "rgba(245,243,255,0)";
+  // Section tint — MiroFish style
+  const TINT = "#FAFAFA";
+  const TINT0 = "rgba(250,250,250,0)";
 
   return (
     <div
@@ -159,8 +159,8 @@ export function MermaidDiagram({ code }: { code: string }) {
         background: TINT,
         // Break out of prose px-10 (2.5rem) padding to span full content width
         margin: "3rem -2.5rem",
-        borderTop: "1px solid rgba(114,96,220,0.1)",
-        borderBottom: "1px solid rgba(114,96,220,0.1)",
+        borderTop: "1px solid rgba(0,0,0,0.06)",
+        borderBottom: "1px solid rgba(0,0,0,0.06)",
         cursor: "grab",
         userSelect: "none",
       }}
@@ -170,7 +170,7 @@ export function MermaidDiagram({ code }: { code: string }) {
         position: "absolute", top: 0, left: 0, zIndex: 10,
         padding: "10px 20px",
         fontSize: 9, fontWeight: 700, letterSpacing: "0.14em",
-        textTransform: "uppercase", color: "rgba(114,96,220,0.35)",
+        textTransform: "uppercase", color: "rgba(0,0,0,0.2)",
         pointerEvents: "none", lineHeight: 1,
       }}>
         路线概览
@@ -190,7 +190,7 @@ export function MermaidDiagram({ code }: { code: string }) {
         display: "flex", alignItems: "center",
         background: "rgba(255,255,255,0.75)",
         backdropFilter: "blur(10px)",
-        border: "1px solid rgba(114,96,220,0.12)",
+        border: "1px solid rgba(0,0,0,0.06)",
         borderRadius: 20,
         boxShadow: "0 1px 6px rgba(0,0,0,0.06)",
         padding: "2px 4px",
@@ -202,7 +202,7 @@ export function MermaidDiagram({ code }: { code: string }) {
         }}>
           {displayScale}%
         </span>
-        <div style={{ width: 1, height: 12, background: "rgba(114,96,220,0.15)", margin: "0 2px" }} />
+        <div style={{ width: 1, height: 12, background: "rgba(0,0,0,0.08)", margin: "0 2px" }} />
         {[
           { label: "+", title: "放大", action: () => { const s = Math.min(tf.current.scale * 1.25, 6); tf.current = { ...tf.current, scale: s }; commit(); } },
           { label: "−", title: "缩小", action: () => { const s = Math.max(tf.current.scale * 0.8, 0.15); tf.current = { ...tf.current, scale: s }; commit(); } },
@@ -222,7 +222,7 @@ export function MermaidDiagram({ code }: { code: string }) {
               transition: "background 0.12s, color 0.12s",
             }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.background = "rgba(114,96,220,0.1)";
+              (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,0.06)";
               (e.currentTarget as HTMLElement).style.color = "var(--color-accent)";
             }}
             onMouseLeave={(e) => {

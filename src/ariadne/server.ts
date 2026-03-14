@@ -423,7 +423,7 @@ app.post("/workspaces/:id/chat/stream", async (req, res) => {
   const workspace = findWorkspace(req.params.id as string);
   if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
 
-  const { messages, sourceIds } = req.body as { messages: ChatMessage[]; sourceIds?: string[] };
+  const { messages, sourceIds, language } = req.body as { messages: ChatMessage[]; sourceIds?: string[]; language?: string };
   if (!messages?.length) { res.status(400).json({ error: "messages required" }); return; }
 
   // Resolve sources: explicit list → all workspace sources
@@ -468,6 +468,7 @@ app.post("/workspaces/:id/chat/stream", async (req, res) => {
       insights: [...workspace.insights.map((i) => i.content), ...(ragContext ? [ragContext] : [])],
       history,
       userMessage,
+      language: language || activeSources[0]?.language || "English",
     })) {
       full += chunk;
       send({ chunk });
