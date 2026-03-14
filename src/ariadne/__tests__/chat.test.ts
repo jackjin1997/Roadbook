@@ -2,17 +2,19 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ── Mock LLM ──────────────────────────────────────────────────────────────────
 const mockInvoke = vi.fn();
+const mockStream = vi.fn();
+const mockModel = () => ({ invoke: mockInvoke, stream: mockStream });
 vi.mock("@langchain/openai", () => ({
-  ChatOpenAI: vi.fn(function () { return { invoke: mockInvoke }; }),
+  ChatOpenAI: vi.fn(function () { return mockModel(); }),
 }));
 vi.mock("@langchain/anthropic", () => ({
-  ChatAnthropic: vi.fn(function () { return { invoke: mockInvoke }; }),
+  ChatAnthropic: vi.fn(function () { return mockModel(); }),
 }));
 vi.mock("@langchain/google-genai", () => ({
-  ChatGoogleGenerativeAI: vi.fn(function () { return { invoke: mockInvoke }; }),
+  ChatGoogleGenerativeAI: vi.fn(function () { return mockModel(); }),
 }));
 
-import { buildChatMessages, extractRoadbookUpdate, stripRoadbookBlock } from "../chat.js";
+import { buildChatMessages, extractRoadbookUpdate, stripRoadbookBlock, chatStream } from "../chat.js";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -121,7 +123,25 @@ describe("buildChatMessages", () => {
       ],
     });
     const system = msgs.find((m) => m._getType() === "system");
-    expect((system?.content as string).length).toBeLessThanOrEqual(70_000); // system prompt overhead
+    expect((system?.content as string).length).toBeLessThanOrEqual(70_000);
+  });
+
+  it("shows truncation notice when context budget exhausted", () => {
+    // Fill budget with large roadmaps so snapshots can't fit
+    const bigRoadmap = "y".repeat(20_000);
+    const msgs = buildChatMessages({
+      ...baseOpts,
+      journeyRoadmap: "z".repeat(8_000),
+      sources: Array.from({ length: 10 }, (_, i) => ({
+        reference: `src-${i}`,
+        snapshot: "s".repeat(10_000),
+        roadmapMarkdown: bigRoadmap,
+      })),
+    });
+    const system = msgs.find((m) => m._getType() === "system");
+    const content = system?.content as string;
+    // Some sources should show the "exceeds context limit" notice
+    expect(content).toContain("content exceeds context limit");
   });
 });
 
@@ -153,5 +173,26 @@ describe("stripRoadbookBlock", () => {
     const reply = `Before\n\n\n\n<roadbook># x</roadbook>\n\n\n\nAfter`;
     const stripped = stripRoadbookBlock(reply);
     expect(stripped).not.toMatch(/\n{3,}/);
+  });
+});
+
+// ── chatStream ──────────────────────────────────────────────────────────────
+
+describe("chatStream", () => {
+  it("yields chunks from the model stream", async () => {
+    // Mock an async iterable of AIMessageChunks
+    async function* fakeStream() {
+      yield { content: "Hello" };
+      yield { content: " world" };
+      yield { content: "" }; // empty chunk should be skipped
+      yield { content: "!" };
+    }
+    mockStream.mockResolvedValue(fakeStream());
+
+    const chunks: string[] = [];
+    for await (const chunk of chatStream({ ...baseOpts })) {
+      chunks.push(chunk);
+    }
+    expect(chunks).toEqual(["Hello", " world", "!"]);
   });
 });

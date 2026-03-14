@@ -17,7 +17,7 @@ vi.mock("@langchain/google-genai", () => ({
   }),
 }));
 
-import { getModel, setModelConfig } from "../config.js";
+import { getModel, setModelConfig, inferProvider } from "../config.js";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
@@ -80,5 +80,23 @@ describe("setModelConfig / getModel", () => {
     // @ts-expect-error testing invalid input
     setModelConfig({ provider: "unknown" });
     expect(() => getModel()).toThrow("Unknown provider: unknown");
+  });
+});
+
+describe("inferProvider", () => {
+  it("returns anthropic for claude models", () => {
+    expect(inferProvider("claude-sonnet-4-6")).toBe("anthropic");
+    expect(inferProvider("claude-3-haiku")).toBe("anthropic");
+  });
+
+  it("returns gemini for gemini models", () => {
+    expect(inferProvider("gemini-2.5-flash")).toBe("gemini");
+    expect(inferProvider("gemini-3-flash-preview")).toBe("gemini");
+  });
+
+  it("defaults to openai for other models", () => {
+    expect(inferProvider("gpt-4o")).toBe("openai");
+    expect(inferProvider("gpt-4-turbo")).toBe("openai");
+    expect(inferProvider("some-custom-model")).toBe("openai");
   });
 });
