@@ -69,34 +69,35 @@ describe("generateRoadbook (full workflow integration)", () => {
   it("returns a non-empty markdown string", async () => {
     const { generateRoadbook } = await import("../workflow.js");
     const result = await generateRoadbook("LangGraph.js");
-    expect(typeof result).toBe("string");
-    expect(result.length).toBeGreaterThan(0);
+    expect(typeof result.markdown).toBe("string");
+    expect(result.markdown.length).toBeGreaterThan(0);
+    expect(Array.isArray(result.skillTree)).toBe(true);
   });
 
   it("markdown includes the LLM-provided title", async () => {
     const { generateRoadbook } = await import("../workflow.js");
     const result = await generateRoadbook("LangGraph.js");
-    expect(result).toContain("# LangGraph.js 学习路书");
+    expect(result.markdown).toContain("# LangGraph.js 学习路书");
   });
 
   it("markdown includes the skill name from extracted tree", async () => {
     const { generateRoadbook } = await import("../workflow.js");
     const result = await generateRoadbook("LangGraph.js");
-    expect(result).toContain("LangGraph.js");
+    expect(result.markdown).toContain("LangGraph.js");
   });
 
   it("markdown includes mermaid mindmap", async () => {
     const { generateRoadbook } = await import("../workflow.js");
     const result = await generateRoadbook("LangGraph.js");
-    expect(result).toContain("```mermaid");
-    expect(result).toContain("mindmap");
+    expect(result.markdown).toContain("```mermaid");
+    expect(result.markdown).toContain("mindmap");
   });
 
   it("markdown includes research resources from Tavily", async () => {
     const { generateRoadbook } = await import("../workflow.js");
     const result = await generateRoadbook("LangGraph.js", "Chinese (Simplified)");
-    expect(result).toContain("推荐资源");
-    expect(result).toContain("[Mock Tutorial]");
+    expect(result.markdown).toContain("推荐资源");
+    expect(result.markdown).toContain("[Mock Tutorial]");
   });
 
   it("calls LLM extractSkillTree with user input", async () => {

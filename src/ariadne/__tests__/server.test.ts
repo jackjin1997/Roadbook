@@ -22,8 +22,14 @@ vi.mock("@langchain/tavily", () => ({
 }));
 
 vi.mock("../workflow.js", () => ({
-  generateRoadbook: vi.fn(async () => "# Mock Roadbook\n\n## Core Skills\n- React\n- TypeScript"),
-  generateJourneyRoadbook: vi.fn(async () => "# Mock Journey Roadmap\n\n## Phase 1\n- Foundations"),
+  generateRoadbook: vi.fn(async () => ({
+    markdown: "# Mock Roadbook\n\n## Core Skills\n- React\n- TypeScript",
+    skillTree: [{ name: "React", category: "Framework", subSkills: ["Hooks"], relatedConcepts: ["TypeScript"], priority: "high", description: "UI library" }],
+  })),
+  generateJourneyRoadbook: vi.fn(async () => ({
+    markdown: "# Mock Journey Roadmap\n\n## Phase 1\n- Foundations",
+    skillTree: [{ name: "Foundations", category: "Core", subSkills: ["Basics"], relatedConcepts: [], priority: "medium", description: "Core foundations" }],
+  })),
 }));
 
 vi.mock("../chat.js", () => ({
@@ -90,6 +96,26 @@ async function api<T>(
   });
   const data = await res.json() as T;
   return { status: res.status, data };
+}
+
+/** Parse an SSE response and return the last "done" event's data. */
+async function ssePost<T>(path: string, body?: unknown): Promise<{ status: number; data: T }> {
+  const res = await fetch(`${baseUrl}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  // Parse SSE lines and find the "done" event
+  let result: T | undefined;
+  for (const line of text.split("\n")) {
+    if (!line.startsWith("data: ")) continue;
+    const data = JSON.parse(line.slice(6));
+    if (data.type === "done") result = data as T;
+    if (data.type === "error") throw new Error(data.error);
+  }
+  if (!result) throw new Error(`No done event in SSE response: ${text.slice(0, 200)}`);
+  return { status: res.status, data: result };
 }
 
 const get = <T>(path: string) => api<T>("GET", path);
@@ -237,7 +263,7 @@ describe("Generate source roadmap", () => {
   });
 
   it("POST /workspaces/:id/sources/:sourceId/generate returns roadmap markdown", async () => {
-    const { status, data } = await post<{ roadmap: { markdown: string }; workspaceTitle: string }>(
+    const { status, data } = await ssePost<{ roadmap: { markdown: string }; workspaceTitle: string }>(
       `/workspaces/${workspaceId}/sources/${sourceId}/generate`,
       {},
     );
@@ -252,7 +278,7 @@ describe("Generate source roadmap", () => {
       `/workspaces/${ws.id}/sources`,
       { text: "Kubernetes orchestration guide." },
     );
-    const { data } = await post<{ workspaceTitle: string }>(
+    const { data } = await ssePost<{ workspaceTitle: string }>(
       `/workspaces/${ws.id}/sources/${src.id}/generate`,
       {},
     );
@@ -277,7 +303,7 @@ describe("Generate journey roadmap", () => {
   });
 
   it("POST /workspaces/:id/generate-journey returns journey roadmap", async () => {
-    const { status, data } = await post<{ roadmap: { markdown: string } }>(
+    const { status, data } = await ssePost<{ roadmap: { markdown: string } }>(
       `/workspaces/${workspaceId}/generate-journey`,
       {},
     );

@@ -24,6 +24,7 @@ import { logTracingStatus } from "./tracing.js";
 export interface Roadmap {
   id: string;
   markdown: string;
+  skillTree?: import("./types.js").SkillNode[];
   generatedAt: number;
 }
 
@@ -78,14 +79,14 @@ function loadStore(): Workspace[] {
     const raw = JSON.parse(readFileSync(STORE_FILE, "utf-8")) as Workspace[];
     // Migrate old data: fill in missing fields
     return raw.map((w) => ({
-      roadmap: null,
-      insights: [],
-      researchTodos: [],
       ...w,
+      roadmap: w.roadmap ?? null,
+      insights: w.insights ?? [],
+      researchTodos: w.researchTodos ?? [],
       sources: w.sources.map((s) => ({
-        origin: "external" as const,
-        digestedSegmentIds: [],
         ...s,
+        origin: s.origin ?? ("external" as const),
+        digestedSegmentIds: s.digestedSegmentIds ?? [],
       })),
     }));
   } catch {
@@ -430,11 +431,11 @@ app.post("/workspaces/:id/generate-journey", async (req, res) => {
 
   try {
     const snapshots = selected.map((s) => ({ text: s.snapshot, language: s.language }));
-    const markdown = await generateJourneyRoadbook(snapshots, (evt) => send({ type: "progress", ...evt }));
-    workspace.roadmap = { id: workspace.roadmap?.id ?? uid(), markdown, generatedAt: Date.now() };
+    const output = await generateJourneyRoadbook(snapshots, (evt) => send({ type: "progress", ...evt }));
+    workspace.roadmap = { id: workspace.roadmap?.id ?? uid(), markdown: output.markdown, skillTree: output.skillTree, generatedAt: Date.now() };
 
     if (workspace.title === "New Journey") {
-      const titleMatch = markdown.match(/^#\s+(.+)$/m);
+      const titleMatch = output.markdown.match(/^#\s+(.+)$/m);
       if (titleMatch) workspace.title = titleMatch[1].trim();
     }
 
@@ -529,11 +530,11 @@ app.post("/workspaces/:id/sources/:sourceId/generate", async (req, res) => {
   const send = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
   try {
-    const markdown = await generateRoadbook(source.snapshot, source.language, (evt) => send({ type: "progress", ...evt }));
-    source.roadmap = { id: uid(), markdown, generatedAt: Date.now() };
+    const output = await generateRoadbook(source.snapshot, source.language, (evt) => send({ type: "progress", ...evt }));
+    source.roadmap = { id: uid(), markdown: output.markdown, skillTree: output.skillTree, generatedAt: Date.now() };
 
     if (workspace.title === "New Journey") {
-      const titleMatch = markdown.match(/^#\s+(.+)$/m);
+      const titleMatch = output.markdown.match(/^#\s+(.+)$/m);
       if (titleMatch) workspace.title = titleMatch[1].trim();
     }
 
@@ -668,7 +669,7 @@ app.post("/workspaces/:id/research-todos/:todoId/run", async (req, res) => {
   updateWorkspace(workspace);
 
   try {
-    const markdown = await generateRoadbook(
+    const output = await generateRoadbook(
       `Research topic: ${todo.topic}\n\n${todo.description ?? ""}`,
       "Chinese",
     );
@@ -678,7 +679,7 @@ app.post("/workspaces/:id/research-todos/:todoId/run", async (req, res) => {
       snapshot: `Research: ${todo.topic}\n\n${todo.description ?? ""}`,
       ingestedAt: Date.now(),
       language: "Chinese",
-      roadmap: { id: uid(), markdown, generatedAt: Date.now() },
+      roadmap: { id: uid(), markdown: output.markdown, skillTree: output.skillTree, generatedAt: Date.now() },
       digestedSegmentIds: [],
     };
     workspace.sources.push(source);

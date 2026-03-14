@@ -40,8 +40,8 @@ const EXPERIMENT_PREFIX = "roadbook";
 // ── Run function ───────────────────────────────────────────────────────────
 
 async function runRoadbook(inputs: Record<string, string>) {
-  const output = await generateRoadbook(inputs.input, inputs.language ?? "English");
-  return { output };
+  const { markdown } = await generateRoadbook(inputs.input, inputs.language ?? "English");
+  return { output: markdown };
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────

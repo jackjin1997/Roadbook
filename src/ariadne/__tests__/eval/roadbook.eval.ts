@@ -78,7 +78,7 @@ const eval_ = {
 
 describe.skipIf(!hasApiKey)("[eval] generateRoadbook — structural quality", () => {
   it("generates a roadmap with H1 title, H2 sections, and mermaid mindmap", async () => {
-    const result = await generateRoadbook(
+    const { markdown: result } = await generateRoadbook(
       "Frontend Engineer — React, TypeScript, GraphQL, performance optimization",
     );
 
@@ -89,7 +89,7 @@ describe.skipIf(!hasApiKey)("[eval] generateRoadbook — structural quality", ()
   });
 
   it("mentions key input terms in the output", async () => {
-    const result = await generateRoadbook("Python data science: pandas, numpy, scikit-learn, visualization");
+    const { markdown: result } = await generateRoadbook("Python data science: pandas, numpy, scikit-learn, visualization");
 
     expect(eval_.mentionsAny(result, ["Python", "pandas", "numpy", "scikit"]),
       "should mention at least one key tech from input").toBe(true);
@@ -103,7 +103,7 @@ describe.skipIf(!hasApiKey)("[eval] generateRoadbook — structural quality", ()
 - 有 Kubernetes 运维经验者优先
 - 具备良好的系统设计能力`;
 
-    const result = await generateRoadbook(jd, "Chinese (Simplified)");
+    const { markdown: result } = await generateRoadbook(jd, "Chinese (Simplified)");
 
     expect(eval_.hasH1(result), "should have H1 title").toBe(true);
     expect(eval_.hasMermaid(result), "should include mindmap").toBe(true);
@@ -114,7 +114,7 @@ describe.skipIf(!hasApiKey)("[eval] generateRoadbook — structural quality", ()
   });
 
   it("short concept input produces a concept-centered roadmap", async () => {
-    const result = await generateRoadbook("RAG (Retrieval-Augmented Generation)");
+    const { markdown: result } = await generateRoadbook("RAG (Retrieval-Augmented Generation)");
 
     expect(eval_.hasH1(result), "should have H1").toBe(true);
     expect(eval_.mentionsAny(result, ["RAG", "retrieval", "embedding", "vector", "LLM"]),
@@ -295,7 +295,7 @@ describe.skipIf(!hasApiKey)("[eval] Full pipeline quality", () => {
 
     expect(skillResult.skillTree!.length).toBeGreaterThanOrEqual(3);
 
-    const roadmap = await generateRoadbook(input);
+    const { markdown: roadmap } = await generateRoadbook(input);
 
     // Both skill tree and roadmap should be Kubernetes-themed
     const treeNames = skillResult.skillTree!.map((n) => n.name.toLowerCase()).join(" ");

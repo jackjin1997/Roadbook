@@ -191,3 +191,5 @@
 - [x] T11 · Research Todo Panel（Run → 🔬 source）
 - [x] T12 · 多 source 上下文 chat（backend + 上下文来源 UI）
 - [x] T22 · LangSmith 评估流水线（8 heuristic + 6 LLM-as-judge + 2 summary）
+- [x] T15 · 生成过程实时进度流（SSE + ProgressIndicator）
+- [x] T19 · 技能图谱可视化（D3 force graph + Prose/Graph 切换）

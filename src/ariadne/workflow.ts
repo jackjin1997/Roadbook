@@ -3,13 +3,18 @@ import { extractSkillTree } from "./nodes/extractSkillTree.js";
 import { researchSkills } from "./nodes/researchNode.js";
 import { generateRoadbookMarkdown } from "./nodes/generateRoadbook.js";
 import { mergeSkillTrees } from "./nodes/mergeSkillTrees.js";
-import type { InputType, ResearchResult, ProgressCallback } from "./types.js";
+import type { InputType, SkillNode, ResearchResult, ProgressCallback } from "./types.js";
+
+export interface GenerationOutput {
+  markdown: string;
+  skillTree: SkillNode[];
+}
 
 export async function generateRoadbook(
   input: string,
   language = "English",
   onProgress?: ProgressCallback,
-): Promise<string> {
+): Promise<GenerationOutput> {
   // 1. Parse input
   onProgress?.({ stage: "parseInput", progress: 0, detail: "Classifying input…" });
   const parsed = parseInput({ input });
@@ -38,7 +43,10 @@ export async function generateRoadbook(
   });
   onProgress?.({ stage: "generateRoadbook", progress: 100 });
 
-  return (result as { roadbookMarkdown: string }).roadbookMarkdown;
+  return {
+    markdown: (result as { roadbookMarkdown: string }).roadbookMarkdown,
+    skillTree,
+  };
 }
 
 /**
@@ -49,7 +57,7 @@ export async function generateRoadbook(
 export async function generateJourneyRoadbook(
   snapshots: { text: string; language: string }[],
   onProgress?: ProgressCallback,
-): Promise<string> {
+): Promise<GenerationOutput> {
   if (snapshots.length === 0) throw new Error("No snapshots provided");
 
   const language = snapshots[0].language;
@@ -94,5 +102,8 @@ export async function generateJourneyRoadbook(
   const final = generateRoadbookMarkdown({ ...state, ...researched });
   onProgress?.({ stage: "generateRoadbook", progress: 100 });
 
-  return (final as { roadbookMarkdown: string }).roadbookMarkdown;
+  return {
+    markdown: (final as { roadbookMarkdown: string }).roadbookMarkdown,
+    skillTree: merged,
+  };
 }

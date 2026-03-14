@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { MermaidDiagram } from "../components/MermaidDiagram";
+import { SkillGraph } from "../components/SkillGraph";
 import {
   getWorkspace,
   renameWorkspace,
@@ -86,6 +87,7 @@ export default function WorkspacePage() {
   // Journey generation
   const [checkedSourceIds, setCheckedSourceIds] = useState<Set<string>>(new Set());
   const [generatingJourney, setGeneratingJourney] = useState(false);
+  const [journeyView, setJourneyView] = useState<"prose" | "graph">("prose");
 
   // Generation progress
   const [genProgress, setGenProgress] = useState<GenerationProgress | null>(null);
@@ -486,20 +488,43 @@ export default function WorkspacePage() {
 
             {mainTab === "journey" && (
               workspace.roadmap ? (
-                <div className="px-10 py-8 max-w-3xl mx-auto">
-                  <div className="flex items-center justify-between mb-8">
+                <div className={journeyView === "graph" ? "flex flex-col h-full" : "px-10 py-8 max-w-3xl mx-auto"}>
+                  <div className={`flex items-center justify-between ${journeyView === "graph" ? "px-4 py-3 shrink-0" : "mb-8"}`}>
                     <p className="text-xs" style={{ color: "var(--color-text-muted)", opacity: 0.6 }}>
                       Journey · {formatDate(workspace.roadmap.generatedAt)}
                     </p>
-                    <button onClick={handleGenerateJourney} disabled={generatingJourney}
-                      className="text-xs px-3 py-1.5 rounded-lg disabled:opacity-40"
-                      style={{ border: "1px solid var(--color-border)", color: "var(--color-text-muted)", background: "var(--color-surface)" }}>
-                      {generatingJourney ? "Weaving…" : "Regenerate"}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {/* View toggle */}
+                      {workspace.roadmap.skillTree && workspace.roadmap.skillTree.length > 0 && (
+                        <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--color-border)" }}>
+                          {(["prose", "graph"] as const).map((v) => (
+                            <button key={v} onClick={() => setJourneyView(v)}
+                              className="text-xs px-2.5 py-1 capitalize transition-colors"
+                              style={{
+                                background: journeyView === v ? "var(--color-accent)" : "var(--color-surface)",
+                                color: journeyView === v ? "#fff" : "var(--color-text-muted)",
+                              }}>
+                              {v === "prose" ? "Prose" : "Graph"}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <button onClick={handleGenerateJourney} disabled={generatingJourney}
+                        className="text-xs px-3 py-1.5 rounded-lg disabled:opacity-40"
+                        style={{ border: "1px solid var(--color-border)", color: "var(--color-text-muted)", background: "var(--color-surface)" }}>
+                        {generatingJourney ? "Weaving…" : "Regenerate"}
+                      </button>
+                    </div>
                   </div>
-                  <article className="prose max-w-none">
-                    <Markdown remarkPlugins={[remarkGfm]} components={mdComponents}>{workspace.roadmap.markdown}</Markdown>
-                  </article>
+                  {journeyView === "graph" && workspace.roadmap.skillTree ? (
+                    <div className="flex-1 min-h-0">
+                      <SkillGraph skillTree={workspace.roadmap.skillTree} />
+                    </div>
+                  ) : (
+                    <article className="prose max-w-none">
+                      <Markdown remarkPlugins={[remarkGfm]} components={mdComponents}>{workspace.roadmap.markdown}</Markdown>
+                    </article>
+                  )}
                 </div>
               ) : (
                 <div className="flex items-center justify-center h-full" style={{ color: "var(--color-text-muted)" }}>

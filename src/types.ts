@@ -1,6 +1,16 @@
+export interface SkillNode {
+  name: string;
+  category: string;
+  subSkills: string[];
+  relatedConcepts: string[];
+  priority: "high" | "medium" | "low";
+  description: string;
+}
+
 export interface Roadmap {
   id: string;
   markdown: string;
+  skillTree?: SkillNode[];
   generatedAt: number;
 }
 

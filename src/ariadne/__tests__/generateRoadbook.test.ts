@@ -48,6 +48,7 @@ describe("generateRoadbookMarkdown", () => {
       title: "测试路书",
       skillTree: mockSkills,
       researchResults: [],
+      language: "Chinese (Simplified)",
     });
     expect(result).toHaveProperty("roadbookMarkdown");
     expect(typeof result.roadbookMarkdown).toBe("string");
@@ -58,6 +59,7 @@ describe("generateRoadbookMarkdown", () => {
       title: "AI 工程师路书",
       skillTree: mockSkills,
       researchResults: [],
+      language: "Chinese (Simplified)",
     });
     expect(result.roadbookMarkdown).toContain("# AI 工程师路书");
   });
@@ -67,6 +69,7 @@ describe("generateRoadbookMarkdown", () => {
       title: "测试",
       skillTree: mockSkills,
       researchResults: [],
+      language: "Chinese (Simplified)",
     });
     expect(result.roadbookMarkdown).toContain("```mermaid");
     expect(result.roadbookMarkdown).toContain("mindmap");
@@ -78,6 +81,7 @@ describe("generateRoadbookMarkdown", () => {
       title: "排序测试",
       skillTree: mockSkills,
       researchResults: [],
+      language: "Chinese (Simplified)",
     });
     const md = result.roadbookMarkdown!;
     const highIdx = md.indexOf("LangGraph.js");
@@ -104,6 +108,7 @@ describe("generateRoadbookMarkdown", () => {
       title: "子技能测试",
       skillTree: [mockSkills[0]!],
       researchResults: [],
+      language: "Chinese (Simplified)",
     });
     expect(result.roadbookMarkdown).toContain("- StateGraph");
     expect(result.roadbookMarkdown).toContain("- Annotation");
@@ -126,6 +131,7 @@ describe("generateRoadbookMarkdown", () => {
       title: "无资源测试",
       skillTree: [mockSkills[1]!],
       researchResults: [],
+      language: "Chinese (Simplified)",
     });
     expect(result.roadbookMarkdown).not.toContain("推荐资源");
   });
@@ -135,6 +141,7 @@ describe("generateRoadbookMarkdown", () => {
       title: "分类测试",
       skillTree: mockSkills,
       researchResults: [],
+      language: "Chinese (Simplified)",
     });
     expect(result.roadbookMarkdown).toContain("框架");
     expect(result.roadbookMarkdown).toContain("编程语言");

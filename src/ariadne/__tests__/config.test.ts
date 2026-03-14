@@ -20,7 +20,6 @@ vi.mock("@langchain/google-genai", () => ({
 import { getModel, setModelConfig } from "../config.js";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatAnthropic } from "@langchain/anthropic";
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 
 beforeEach(() => {
   vi.clearAllMocks();

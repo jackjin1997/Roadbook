@@ -63,14 +63,14 @@ Ariadne CLI - 路书生成引擎
   const startTime = Date.now();
 
   try {
-    const markdown = await generateRoadbook(input);
+    const output = await generateRoadbook(input);
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
     const dir = join(process.cwd(), outputPath.split("/").slice(0, -1).join("/"));
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 
     const fullPath = join(process.cwd(), outputPath);
-    writeFileSync(fullPath, markdown, "utf-8");
+    writeFileSync(fullPath, output.markdown, "utf-8");
 
     console.log(`✅ 路书生成完成 (${elapsed}s)`);
     console.log(`📄 已保存到: ${fullPath}`);
