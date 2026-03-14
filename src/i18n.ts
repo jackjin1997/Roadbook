@@ -32,6 +32,13 @@ export interface UIStrings {
   roadmapReady: string;
 
   loading: string;
+
+  // Generation progress
+  stageParseInput: string;
+  stageExtractSkillTree: string;
+  stageMergeSkillTrees: string;
+  stageResearchSkills: string;
+  stageGenerateRoadbook: string;
 }
 
 const strings: Record<string, UIStrings> = {
@@ -59,6 +66,11 @@ const strings: Record<string, UIStrings> = {
     generateRoadmap: "Generate Roadbook",
     roadmapReady: "✓ Ready",
     loading: "Loading...",
+    stageParseInput: "Analyzing input",
+    stageExtractSkillTree: "Extracting skills",
+    stageMergeSkillTrees: "Merging skills",
+    stageResearchSkills: "Researching resources",
+    stageGenerateRoadbook: "Generating roadbook",
   },
   "Chinese (Simplified)": {
     myJourneys: "我的旅程",
@@ -84,6 +96,11 @@ const strings: Record<string, UIStrings> = {
     generateRoadmap: "生成路书",
     roadmapReady: "✓ 已就绪",
     loading: "加载中...",
+    stageParseInput: "分析输入",
+    stageExtractSkillTree: "提取技能树",
+    stageMergeSkillTrees: "合并技能树",
+    stageResearchSkills: "搜索资源",
+    stageGenerateRoadbook: "生成路书",
   },
   "Japanese": {
     myJourneys: "マイジャーニー",
@@ -109,6 +126,11 @@ const strings: Record<string, UIStrings> = {
     generateRoadmap: "ロードブックを生成",
     roadmapReady: "✓ 完成",
     loading: "読み込み中...",
+    stageParseInput: "入力を分析中",
+    stageExtractSkillTree: "スキルを抽出中",
+    stageMergeSkillTrees: "スキルを統合中",
+    stageResearchSkills: "リソースを検索中",
+    stageGenerateRoadbook: "ロードブックを生成中",
   },
   "Spanish": {
     myJourneys: "Mis Journeys",
@@ -134,6 +156,11 @@ const strings: Record<string, UIStrings> = {
     generateRoadmap: "Generar Roadbook",
     roadmapReady: "✓ Listo",
     loading: "Cargando...",
+    stageParseInput: "Analizando entrada",
+    stageExtractSkillTree: "Extrayendo habilidades",
+    stageMergeSkillTrees: "Fusionando habilidades",
+    stageResearchSkills: "Buscando recursos",
+    stageGenerateRoadbook: "Generando roadbook",
   },
   "French": {
     myJourneys: "Mes Journeys",
@@ -159,6 +186,11 @@ const strings: Record<string, UIStrings> = {
     generateRoadmap: "Générer le Roadbook",
     roadmapReady: "✓ Prêt",
     loading: "Chargement...",
+    stageParseInput: "Analyse de l'entrée",
+    stageExtractSkillTree: "Extraction des compétences",
+    stageMergeSkillTrees: "Fusion des compétences",
+    stageResearchSkills: "Recherche de ressources",
+    stageGenerateRoadbook: "Génération du roadbook",
   },
 };
 

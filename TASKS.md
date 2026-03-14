@@ -102,10 +102,74 @@
 - [ ] 段落级 checkbox（当前是 node 级）
 - [ ] 已消化段落高亮/置灰
 
-### T14 · RAG 分块（后期）
-- [ ] Source 摄入时分块存储
-- [ ] `MemoryVectorStore` 集成
-- [ ] Chat 时 embed query → top-k chunks 替代全文
+### T14 · RAG 分块
+- [ ] Source 摄入时分块存储（`RecursiveCharacterTextSplitter`）
+- [ ] `MemoryVectorStore` 集成（OpenAI / 本地 embedding）
+- [ ] Chat 时 embed query → top-k chunks 替代全文截断
+- [ ] 前端显示引用来源 chunk（citation badge）
+
+---
+
+## Phase 5 — 体验升级
+
+### T15 · 生成过程实时进度流
+- [ ] LangGraph 每个节点完成后通过 SSE 推送进度事件
+- [ ] 事件格式：`{ stage: "parseInput" | "extractSkillTree" | "researchSkills" | "generateRoadbook", progress?: string }`
+- [ ] 前端替换 spinner 为分步进度条（解析 → 提取 N 节点 → 研究中 3/5 → 生成）
+- [ ] Journey 生成同理（多 source 并行提取时显示每个 source 状态）
+
+### T16 · Roadbook 导出
+- [ ] 导出为 Markdown 文件（`.md` 下载）
+- [ ] 导出为 PDF（服务端 puppeteer 或前端 html2pdf）
+- [ ] 导出为 Obsidian vault（技能节点 → 独立 `.md`，`[[双链]]` 关联）
+- [ ] Journey tab / Source roadmap 右上角加导出按钮
+
+### T17 · 学习进度追踪
+- [ ] SkillNode 数据模型加 `status: "not_started" | "learning" | "mastered"`
+- [ ] Journey tab 每个技能节点可点击切换状态
+- [ ] Mermaid mindmap 节点按状态着色（灰/黄/绿）
+- [ ] 顶部显示整体进度（已掌握 / 总数）
+- [ ] 进度持久化到 workspace 数据
+
+### T18 · Research 阶段可靠性增强
+- [ ] Tavily 调用加重试（最多 2 次，指数退避）
+- [ ] 备用搜索源 fallback（Serper / Brave Search）
+- [ ] 前端显示"N 个技能未找到资源"提示（而非静默吞掉）
+- [ ] Research todo 失败时返回部分结果而非全部失败
+
+---
+
+## Phase 6 — 知识网络
+
+### T19 · 技能图谱可视化
+- [ ] D3 force graph 替代/补充 Mermaid mindmap
+- [ ] 节点 = 技能，边 = relatedConcepts 关联
+- [ ] 点击节点 → 展示来源 source、关联 insights、research todos
+- [ ] 节点大小 = priority，颜色 = 学习状态
+- [ ] 支持拖拽、缩放、搜索
+
+### T20 · Workspace 间技能关联
+- [ ] 全局技能索引（跨 workspace 扫描同名技能节点）
+- [ ] "技能雷达"视图：所有 workspace 的技能合并展示
+- [ ] 共享技能节点标记（如 TypeScript 同时出现在前端/后端 workspace）
+- [ ] Home 页增加全局技能图谱入口
+
+---
+
+## Phase 7 — 工程基础
+
+### T21 · 数据层升级
+- [ ] JSON 文件 → SQLite（`better-sqlite3`，Tauri 兼容）
+- [ ] 数据迁移脚本（`workspaces.json` → SQLite）
+- [ ] 并发写入安全（事务 + WAL 模式）
+- [ ] Workspace 版本历史（roadmap snapshots，支持 undo）
+
+### T22 · 综合评估体系完善
+- [x] LangSmith 评估流水线（16 evaluators）
+- [ ] 评估集成到 CI（GitHub Actions + 回归门禁）
+- [ ] Annotation queue 人工评审流程
+- [ ] Pairwise 评估：prompt 版本 A/B 对比
+- [ ] 前端 test coverage 补齐（Workspace.tsx 890 行无测试）
 
 ---
 
@@ -126,3 +190,4 @@
 - [x] T10 · Insight Panel
 - [x] T11 · Research Todo Panel（Run → 🔬 source）
 - [x] T12 · 多 source 上下文 chat（backend + 上下文来源 UI）
+- [x] T22 · LangSmith 评估流水线（8 heuristic + 6 LLM-as-judge + 2 summary）

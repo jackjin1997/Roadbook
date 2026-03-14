@@ -42,3 +42,13 @@ export interface RoadbookState {
   researchResults: ResearchResult[];
   roadbookMarkdown: string;
 }
+
+// ── Progress streaming ────────────────────────────────────────────────────
+
+export interface ProgressEvent {
+  stage: "parseInput" | "extractSkillTree" | "mergeSkillTrees" | "researchSkills" | "generateRoadbook";
+  progress?: number;   // 0-100
+  detail?: string;
+}
+
+export type ProgressCallback = (event: ProgressEvent) => void;

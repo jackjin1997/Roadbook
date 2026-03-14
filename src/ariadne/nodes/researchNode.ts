@@ -1,5 +1,5 @@
 import { TavilySearchAPIWrapper } from "@langchain/tavily";
-import type { RoadbookState, ResearchResult } from "../types.js";
+import type { RoadbookState, ResearchResult, ProgressCallback } from "../types.js";
 
 /**
  * Research each skill node via Tavily Search.
@@ -8,6 +8,7 @@ import type { RoadbookState, ResearchResult } from "../types.js";
  */
 export async function researchSkills(
   state: Pick<RoadbookState, "skillTree">,
+  onProgress?: ProgressCallback,
 ): Promise<Partial<RoadbookState>> {
   if (!process.env.TAVILY_API_KEY) {
     console.warn("TAVILY_API_KEY not set — skipping research phase");
@@ -28,6 +29,9 @@ export async function researchSkills(
 
   const TIMEOUT_MS = 8000;
 
+  let researched = 0;
+  const total = prioritized.length;
+
   const settled = await Promise.allSettled(
     prioritized.map(async (skill) => {
       const query = `${skill.name} tutorial best practices learning resources`;
@@ -38,6 +42,8 @@ export async function researchSkills(
         tavily.rawResults({ query, max_results: 3 }),
         timeoutPromise,
       ]);
+      researched++;
+      onProgress?.({ stage: "researchSkills", progress: Math.round((researched / total) * 100), detail: `${researched}/${total}: ${skill.name}` });
       return {
         skillName: skill.name,
         resources: response.results.slice(0, 3).map((r) => ({

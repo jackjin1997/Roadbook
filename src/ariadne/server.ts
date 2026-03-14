@@ -423,9 +423,14 @@ app.post("/workspaces/:id/generate-journey", async (req, res) => {
 
   if (model) setModelConfig({ provider: inferProvider(model), modelName: model });
 
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  const send = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
   try {
     const snapshots = selected.map((s) => ({ text: s.snapshot, language: s.language }));
-    const markdown = await generateJourneyRoadbook(snapshots);
+    const markdown = await generateJourneyRoadbook(snapshots, (evt) => send({ type: "progress", ...evt }));
     workspace.roadmap = { id: workspace.roadmap?.id ?? uid(), markdown, generatedAt: Date.now() };
 
     if (workspace.title === "New Journey") {
@@ -434,11 +439,12 @@ app.post("/workspaces/:id/generate-journey", async (req, res) => {
     }
 
     updateWorkspace(workspace);
-    res.json({ roadmap: workspace.roadmap, workspaceTitle: workspace.title });
+    send({ type: "done", roadmap: workspace.roadmap, workspaceTitle: workspace.title });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
+    send({ type: "error", error: message });
   } finally {
+    res.end();
     setModelConfig({ provider: "gemini", modelName: "gemini-3.1-pro-low" });
   }
 });
@@ -517,24 +523,28 @@ app.post("/workspaces/:id/sources/:sourceId/generate", async (req, res) => {
   const { model } = req.body as { provider?: ModelProvider; model?: string };
   if (model) setModelConfig({ provider: inferProvider(model), modelName: model });
 
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  const send = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
   try {
-    const markdown = await generateRoadbook(source.snapshot, source.language);
+    const markdown = await generateRoadbook(source.snapshot, source.language, (evt) => send({ type: "progress", ...evt }));
     source.roadmap = { id: uid(), markdown, generatedAt: Date.now() };
 
-    // Auto-title workspace from first roadmap if still default
     if (workspace.title === "New Journey") {
       const titleMatch = markdown.match(/^#\s+(.+)$/m);
       if (titleMatch) workspace.title = titleMatch[1].trim();
     }
 
     updateWorkspace(workspace);
-    res.json({ roadmap: source.roadmap, workspaceTitle: workspace.title });
+    send({ type: "done", roadmap: source.roadmap, workspaceTitle: workspace.title });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("Generation failed:", message);
-    res.status(500).json({ error: message });
+    send({ type: "error", error: message });
   } finally {
-    // Reset to default so one request's model choice doesn't leak into subsequent requests
+    res.end();
     setModelConfig({ provider: "gemini", modelName: "gemini-3.1-pro-low" });
   }
 });

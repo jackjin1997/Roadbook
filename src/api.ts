@@ -116,19 +116,82 @@ export function streamChatMessage(
   });
 }
 
-// Generate source roadmap
-export const generateRoadmap = (workspaceId: string, sourceId: string, model?: string) =>
-  req<{ roadmap: Roadmap; workspaceTitle: string }>(
-    `/workspaces/${workspaceId}/sources/${sourceId}/generate`,
-    { method: "POST", body: JSON.stringify(model ? { model } : {}) },
-  );
+// ── Generation progress streaming ──────────────────────────────────────────
 
-// Generate journey roadmap (multi-source merge)
-export const generateJourney = (workspaceId: string, sourceIds: string[], model?: string) =>
-  req<{ roadmap: Roadmap; workspaceTitle: string }>(
-    `/workspaces/${workspaceId}/generate-journey`,
-    { method: "POST", body: JSON.stringify({ sourceIds, ...(model ? { model } : {}) }) },
+export interface GenerationProgress {
+  stage: string;
+  progress?: number;
+  detail?: string;
+}
+
+type GenerationResult = { roadmap: Roadmap; workspaceTitle: string };
+
+/** SSE reader shared by both generation streams. */
+function readGenerationStream(
+  url: string,
+  body: object,
+  onProgress: (event: GenerationProgress) => void,
+): Promise<GenerationResult> {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok || !res.body) { reject(new Error(`HTTP ${res.status}`)); return; }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop()!;
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = JSON.parse(line.slice(6));
+          if (data.type === "error") { reject(new Error(data.error)); return; }
+          if (data.type === "progress") onProgress({ stage: data.stage, progress: data.progress, detail: data.detail });
+          if (data.type === "done") resolve({ roadmap: data.roadmap, workspaceTitle: data.workspaceTitle });
+        }
+      }
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+// Generate source roadmap (SSE with progress)
+export function generateRoadmap(
+  workspaceId: string,
+  sourceId: string,
+  model?: string,
+  onProgress?: (event: GenerationProgress) => void,
+): Promise<GenerationResult> {
+  return readGenerationStream(
+    `${API}/workspaces/${workspaceId}/sources/${sourceId}/generate`,
+    model ? { model } : {},
+    onProgress ?? (() => {}),
   );
+}
+
+// Generate journey roadmap (SSE with progress)
+export function generateJourney(
+  workspaceId: string,
+  sourceIds: string[],
+  model?: string,
+  onProgress?: (event: GenerationProgress) => void,
+): Promise<GenerationResult> {
+  return readGenerationStream(
+    `${API}/workspaces/${workspaceId}/generate-journey`,
+    { sourceIds, ...(model ? { model } : {}) },
+    onProgress ?? (() => {}),
+  );
+}
 
 // Digest selected segments into journey roadmap
 export const digestSource = (

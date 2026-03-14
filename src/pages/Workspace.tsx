@@ -21,7 +21,7 @@ import {
   deleteResearchTodo,
   runResearchTodo,
 } from "../api";
-import type { ChatMessage } from "../api";
+import type { ChatMessage, GenerationProgress } from "../api";
 import type { Workspace, Source, Insight, ResearchTodo } from "../types";
 import ResizeHandle from "../components/ResizeHandle";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -86,6 +86,9 @@ export default function WorkspacePage() {
   // Journey generation
   const [checkedSourceIds, setCheckedSourceIds] = useState<Set<string>>(new Set());
   const [generatingJourney, setGeneratingJourney] = useState(false);
+
+  // Generation progress
+  const [genProgress, setGenProgress] = useState<GenerationProgress | null>(null);
 
   // Digest
   const [digestMode, setDigestMode] = useState(false);
@@ -180,23 +183,25 @@ export default function WorkspacePage() {
   const handleGenerate = async (sourceId: string) => {
     if (!workspace) return;
     setGeneratingId(sourceId);
+    setGenProgress(null);
     try {
-      const { roadmap, workspaceTitle } = await generateRoadmap(workspace.id, sourceId, selectedModel || undefined);
+      const { roadmap, workspaceTitle } = await generateRoadmap(workspace.id, sourceId, selectedModel || undefined, setGenProgress);
       setWorkspace((w) => w ? { ...w, title: workspaceTitle, sources: w.sources.map((s) => s.id === sourceId ? { ...s, roadmap } : s) } : w);
       setTitleDraft(workspaceTitle);
-    } finally { setGeneratingId(null); }
+    } finally { setGeneratingId(null); setGenProgress(null); }
   };
 
   const handleGenerateJourney = async () => {
     if (!workspace) return;
     setGeneratingJourney(true);
+    setGenProgress(null);
     try {
       const ids = checkedSourceIds.size > 0 ? [...checkedSourceIds] : workspace.sources.map((s) => s.id);
-      const { roadmap, workspaceTitle } = await generateJourney(workspace.id, ids, selectedModel || undefined);
+      const { roadmap, workspaceTitle } = await generateJourney(workspace.id, ids, selectedModel || undefined, setGenProgress);
       setWorkspace((w) => w ? { ...w, roadmap, title: workspaceTitle } : w);
       setTitleDraft(workspaceTitle);
       setMainTab("journey");
-    } finally { setGeneratingJourney(false); }
+    } finally { setGeneratingJourney(false); setGenProgress(null); }
   };
 
   const handleDigest = async () => {
@@ -474,7 +479,7 @@ export default function WorkspacePage() {
                     )}
                   </div>
                 ) : (
-                  <GeneratePrompt i={i} generating={generatingId === selectedSource.id} onGenerate={() => handleGenerate(selectedSource.id)} />
+                  <GeneratePrompt i={i} generating={generatingId === selectedSource.id} onGenerate={() => handleGenerate(selectedSource.id)} progress={generatingId === selectedSource.id ? genProgress : null} />
                 )}
               </>
             )}
@@ -500,10 +505,14 @@ export default function WorkspacePage() {
                 <div className="flex items-center justify-center h-full" style={{ color: "var(--color-text-muted)" }}>
                   <div className="text-center space-y-4">
                     {generatingJourney ? (
-                      <>
-                        <div className="inline-block w-6 h-6 border-2 rounded-full animate-spin mx-auto" style={{ borderColor: "var(--color-accent)", borderTopColor: "transparent" }} />
-                        <p className="text-sm">Weaving your journey roadmap…</p>
-                      </>
+                      genProgress ? (
+                        <ProgressIndicator progress={genProgress} stages={JOURNEY_STAGE_KEYS} i={i} />
+                      ) : (
+                        <>
+                          <div className="inline-block w-6 h-6 border-2 rounded-full animate-spin mx-auto" style={{ borderColor: "var(--color-accent)", borderTopColor: "transparent" }} />
+                          <p className="text-sm">Weaving your journey roadmap…</p>
+                        </>
+                      )
                     ) : (
                       <>
                         <p className="text-sm">No Journey Roadmap yet.</p>
@@ -895,15 +904,63 @@ function SourceItem({ source, selected, checked, generating, digestStatus, onSel
 
 // ── GeneratePrompt / EmptyState ───────────────────────────────────────────────
 
-function GeneratePrompt({ generating, onGenerate, i }: { generating: boolean; onGenerate: () => void; i: ReturnType<typeof t> }) {
+const STAGE_KEYS = ["parseInput", "extractSkillTree", "researchSkills", "generateRoadbook"] as const;
+const JOURNEY_STAGE_KEYS = ["extractSkillTree", "mergeSkillTrees", "researchSkills", "generateRoadbook"] as const;
+
+const STAGE_LABELS: Record<string, keyof ReturnType<typeof t>> = {
+  parseInput: "stageParseInput",
+  extractSkillTree: "stageExtractSkillTree",
+  mergeSkillTrees: "stageMergeSkillTrees",
+  researchSkills: "stageResearchSkills",
+  generateRoadbook: "stageGenerateRoadbook",
+};
+
+function ProgressIndicator({ progress, stages, i }: { progress: GenerationProgress; stages: readonly string[]; i: ReturnType<typeof t> }) {
+  const currentIdx = stages.indexOf(progress.stage);
+  return (
+    <div className="space-y-2 text-left inline-block">
+      {stages.map((stage, idx) => {
+        const isDone = idx < currentIdx || (idx === currentIdx && progress.progress === 100);
+        const isCurrent = idx === currentIdx && progress.progress !== 100;
+        const isPending = idx > currentIdx;
+        const label = i[STAGE_LABELS[stage] ?? "loading"];
+        return (
+          <div key={stage} className="flex items-center gap-2.5 text-xs" style={{ opacity: isPending ? 0.35 : 1 }}>
+            {isDone ? (
+              <span style={{ color: "var(--color-accent)" }}>✓</span>
+            ) : isCurrent ? (
+              <div className="w-3.5 h-3.5 border-2 rounded-full animate-spin shrink-0" style={{ borderColor: "var(--color-accent)", borderTopColor: "transparent" }} />
+            ) : (
+              <span className="w-3.5 text-center" style={{ color: "var(--color-text-muted)" }}>○</span>
+            )}
+            <span style={{ color: isCurrent ? "var(--color-text)" : "var(--color-text-muted)" }}>
+              {label}
+            </span>
+            {isCurrent && progress.detail && (
+              <span className="text-[10px]" style={{ color: "var(--color-text-muted)", opacity: 0.7 }}>
+                {progress.detail}
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function GeneratePrompt({ generating, onGenerate, i, progress }: { generating: boolean; onGenerate: () => void; i: ReturnType<typeof t>; progress?: GenerationProgress | null }) {
   return (
     <div className="flex items-center justify-center h-full" style={{ color: "var(--color-text-muted)" }}>
       <div className="text-center space-y-4">
         {generating ? (
-          <>
-            <div className="inline-block w-6 h-6 border-2 rounded-full animate-spin mx-auto" style={{ borderColor: "var(--color-accent)", borderTopColor: "transparent" }} />
-            <p className="text-sm">{i.weavingRoadmap}</p>
-          </>
+          progress ? (
+            <ProgressIndicator progress={progress} stages={STAGE_KEYS} i={i} />
+          ) : (
+            <>
+              <div className="inline-block w-6 h-6 border-2 rounded-full animate-spin mx-auto" style={{ borderColor: "var(--color-accent)", borderTopColor: "transparent" }} />
+              <p className="text-sm">{i.weavingRoadmap}</p>
+            </>
+          )
         ) : (
           <>
             <p className="text-sm">{i.readyToGenerate}</p>
