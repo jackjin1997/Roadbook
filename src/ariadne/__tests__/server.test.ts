@@ -450,14 +450,54 @@ describe("Research Todos CRUD", () => {
   });
 });
 
+describe("Skill Progress", () => {
+  let workspaceId: string;
+
+  beforeAll(async () => {
+    const { data } = await post<{ id: string }>("/workspaces", { title: "Progress Test WS" });
+    workspaceId = data.id;
+  });
+
+  it("PATCH /workspaces/:id/skill-progress updates skill status", async () => {
+    const { status, data } = await patch<{ skillProgress: Record<string, string> }>(
+      `/workspaces/${workspaceId}/skill-progress`,
+      { skillName: "React", status: "learning" },
+    );
+    expect(status).toBe(200);
+    expect(data.skillProgress.React).toBe("learning");
+  });
+
+  it("skill progress persists in workspace", async () => {
+    const { data } = await get<{ skillProgress: Record<string, string> }>(`/workspaces/${workspaceId}`);
+    expect(data.skillProgress.React).toBe("learning");
+  });
+
+  it("setting not_started removes the entry", async () => {
+    await patch(`/workspaces/${workspaceId}/skill-progress`, { skillName: "React", status: "not_started" });
+    const { data } = await get<{ skillProgress: Record<string, string> }>(`/workspaces/${workspaceId}`);
+    expect(data.skillProgress.React).toBeUndefined();
+  });
+
+  it("returns 400 for invalid status", async () => {
+    const { status } = await patch(`/workspaces/${workspaceId}/skill-progress`, { skillName: "React", status: "invalid" });
+    expect(status).toBe(400);
+  });
+
+  it("returns 400 when skillName is missing", async () => {
+    const { status } = await patch(`/workspaces/${workspaceId}/skill-progress`, { status: "learning" });
+    expect(status).toBe(400);
+  });
+});
+
 describe("Data migration (old workspaces)", () => {
-  it("workspace response always includes insights and researchTodos arrays", async () => {
+  it("workspace response always includes insights, researchTodos, and skillProgress", async () => {
     const { data } = await post<{ id: string }>("/workspaces", { title: "Migration Test" });
-    const { data: ws } = await get<{ insights: unknown[]; researchTodos: unknown[]; roadmap: null }>(
+    const { data: ws } = await get<{ insights: unknown[]; researchTodos: unknown[]; roadmap: null; skillProgress: Record<string, unknown> }>(
       `/workspaces/${data.id}`,
     );
     expect(Array.isArray(ws.insights)).toBe(true);
     expect(Array.isArray(ws.researchTodos)).toBe(true);
     expect(ws.roadmap).toBeNull();
+    expect(typeof ws.skillProgress).toBe("object");
   });
 });

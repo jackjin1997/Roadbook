@@ -21,6 +21,7 @@ import {
   addResearchTodo,
   deleteResearchTodo,
   runResearchTodo,
+  updateSkillProgress,
 } from "../api";
 import type { ChatMessage, GenerationProgress } from "../api";
 import type { Workspace, Source, Insight, ResearchTodo } from "../types";
@@ -42,6 +43,16 @@ const mdComponents = {
 function formatDate(ts: number) {
   const d = new Date(ts);
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+function downloadMarkdown(markdown: string, filename: string) {
+  const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename.replace(/[^a-zA-Z0-9\u4e00-\u9fff_-]/g, "_") + ".md";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // Parse markdown into sections by ## headings for digest selection
@@ -91,6 +102,7 @@ export default function WorkspacePage() {
 
   // Generation progress
   const [genProgress, setGenProgress] = useState<GenerationProgress | null>(null);
+  const [failedSkillsNotice, setFailedSkillsNotice] = useState<string[] | null>(null);
 
   // Digest
   const [digestMode, setDigestMode] = useState(false);
@@ -186,10 +198,12 @@ export default function WorkspacePage() {
     if (!workspace) return;
     setGeneratingId(sourceId);
     setGenProgress(null);
+    setFailedSkillsNotice(null);
     try {
-      const { roadmap, workspaceTitle } = await generateRoadmap(workspace.id, sourceId, selectedModel || undefined, setGenProgress);
+      const { roadmap, workspaceTitle, failedSkills } = await generateRoadmap(workspace.id, sourceId, selectedModel || undefined, setGenProgress);
       setWorkspace((w) => w ? { ...w, title: workspaceTitle, sources: w.sources.map((s) => s.id === sourceId ? { ...s, roadmap } : s) } : w);
       setTitleDraft(workspaceTitle);
+      if (failedSkills?.length) setFailedSkillsNotice(failedSkills);
     } finally { setGeneratingId(null); setGenProgress(null); }
   };
 
@@ -197,12 +211,14 @@ export default function WorkspacePage() {
     if (!workspace) return;
     setGeneratingJourney(true);
     setGenProgress(null);
+    setFailedSkillsNotice(null);
     try {
       const ids = checkedSourceIds.size > 0 ? [...checkedSourceIds] : workspace.sources.map((s) => s.id);
-      const { roadmap, workspaceTitle } = await generateJourney(workspace.id, ids, selectedModel || undefined, setGenProgress);
+      const { roadmap, workspaceTitle, failedSkills } = await generateJourney(workspace.id, ids, selectedModel || undefined, setGenProgress);
       setWorkspace((w) => w ? { ...w, roadmap, title: workspaceTitle } : w);
       setTitleDraft(workspaceTitle);
       setMainTab("journey");
+      if (failedSkills?.length) setFailedSkillsNotice(failedSkills);
     } finally { setGeneratingJourney(false); setGenProgress(null); }
   };
 
@@ -448,6 +464,15 @@ export default function WorkspacePage() {
             )}
           </div>
 
+          {/* Failed skills notice */}
+          {failedSkillsNotice && (
+            <div className="mx-4 mt-2 px-3 py-2 rounded-lg text-xs flex items-center justify-between"
+              style={{ background: "rgba(255,180,50,0.12)", color: "var(--color-text-muted)", border: "1px solid rgba(255,180,50,0.25)" }}>
+              <span>{failedSkillsNotice.length} skill(s) had no research results: {failedSkillsNotice.join(", ")}</span>
+              <button onClick={() => setFailedSkillsNotice(null)} className="ml-2 opacity-60 hover:opacity-100" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14 }}>×</button>
+            </div>
+          )}
+
           {/* Tab content */}
           <div className="flex-1 overflow-auto">
             {mainTab === "source" && (
@@ -461,11 +486,19 @@ export default function WorkspacePage() {
                         {selectedSource.origin === "research" && <span>🔬</span>}
                         <span style={{ opacity: 0.6 }}>{i.generated} {formatDate(selectedSource.roadmap.generatedAt)}</span>
                       </p>
-                      <button onClick={() => handleGenerate(selectedSource.id)} disabled={generatingId === selectedSource.id}
-                        className="text-xs px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40"
-                        style={{ border: "1px solid var(--color-border)", color: "var(--color-text-muted)", background: "var(--color-surface)" }}>
-                        {generatingId === selectedSource.id ? i.regenerating : i.regenerate}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => downloadMarkdown(selectedSource.roadmap!.markdown, selectedSource.reference || "roadbook")}
+                          className="text-xs px-2.5 py-1.5 rounded-lg transition-colors"
+                          style={{ border: "1px solid var(--color-border)", color: "var(--color-text-muted)", background: "var(--color-surface)" }}
+                          title="Export as Markdown">
+                          .md
+                        </button>
+                        <button onClick={() => handleGenerate(selectedSource.id)} disabled={generatingId === selectedSource.id}
+                          className="text-xs px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40"
+                          style={{ border: "1px solid var(--color-border)", color: "var(--color-text-muted)", background: "var(--color-surface)" }}>
+                          {generatingId === selectedSource.id ? i.regenerating : i.regenerate}
+                        </button>
+                      </div>
                     </div>
                     {digestMode ? (
                       <DigestableRoadmap
@@ -490,9 +523,22 @@ export default function WorkspacePage() {
               workspace.roadmap ? (
                 <div className={journeyView === "graph" ? "flex flex-col h-full" : "px-10 py-8 max-w-3xl mx-auto"}>
                   <div className={`flex items-center justify-between ${journeyView === "graph" ? "px-4 py-3 shrink-0" : "mb-8"}`}>
-                    <p className="text-xs" style={{ color: "var(--color-text-muted)", opacity: 0.6 }}>
-                      Journey · {formatDate(workspace.roadmap.generatedAt)}
-                    </p>
+                    <div className="flex items-center gap-3">
+                      <p className="text-xs" style={{ color: "var(--color-text-muted)", opacity: 0.6 }}>
+                        Journey · {formatDate(workspace.roadmap.generatedAt)}
+                      </p>
+                      {workspace.roadmap.skillTree && workspace.roadmap.skillTree.length > 0 && (() => {
+                        const total = workspace.roadmap.skillTree!.length;
+                        const mastered = workspace.roadmap.skillTree!.filter((s) => workspace.skillProgress[s.name] === "mastered").length;
+                        const learning = workspace.roadmap.skillTree!.filter((s) => workspace.skillProgress[s.name] === "learning").length;
+                        if (mastered === 0 && learning === 0) return null;
+                        return (
+                          <span className="text-[10px] px-2 py-0.5 rounded" style={{ background: "var(--color-surface-hover)", color: "var(--color-text-muted)" }}>
+                            {mastered}/{total} mastered{learning > 0 ? ` · ${learning} learning` : ""}
+                          </span>
+                        );
+                      })()}
+                    </div>
                     <div className="flex items-center gap-2">
                       {/* View toggle */}
                       {workspace.roadmap.skillTree && workspace.roadmap.skillTree.length > 0 && (
@@ -509,6 +555,12 @@ export default function WorkspacePage() {
                           ))}
                         </div>
                       )}
+                      <button onClick={() => downloadMarkdown(workspace.roadmap!.markdown, workspace.title || "journey")}
+                        className="text-xs px-2.5 py-1.5 rounded-lg transition-colors"
+                        style={{ border: "1px solid var(--color-border)", color: "var(--color-text-muted)", background: "var(--color-surface)" }}
+                        title="Export as Markdown">
+                        .md
+                      </button>
                       <button onClick={handleGenerateJourney} disabled={generatingJourney}
                         className="text-xs px-3 py-1.5 rounded-lg disabled:opacity-40"
                         style={{ border: "1px solid var(--color-border)", color: "var(--color-text-muted)", background: "var(--color-surface)" }}>
@@ -518,7 +570,15 @@ export default function WorkspacePage() {
                   </div>
                   {journeyView === "graph" && workspace.roadmap.skillTree ? (
                     <div className="flex-1 min-h-0">
-                      <SkillGraph skillTree={workspace.roadmap.skillTree} />
+                      <SkillGraph
+                        skillTree={workspace.roadmap.skillTree}
+                        skillProgress={workspace.skillProgress}
+                        onStatusChange={async (name, status) => {
+                          if (!workspace) return;
+                          const { skillProgress: updated } = await updateSkillProgress(workspace.id, name, status);
+                          setWorkspace((w) => w ? { ...w, skillProgress: updated } : w);
+                        }}
+                      />
                     </div>
                   ) : (
                     <article className="prose max-w-none">

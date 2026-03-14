@@ -192,4 +192,7 @@
 - [x] T12 · 多 source 上下文 chat（backend + 上下文来源 UI）
 - [x] T22 · LangSmith 评估流水线（8 heuristic + 6 LLM-as-judge + 2 summary）
 - [x] T15 · 生成过程实时进度流（SSE + ProgressIndicator）
+- [x] T16 · Roadbook 导出（Markdown .md 下载）
+- [x] T17 · 学习进度追踪（skillProgress API + SkillGraph 状态环 + 双击切换）
+- [x] T18 · Research 可靠性增强（指数退避重试 + failedSkills 前端提示）
 - [x] T19 · 技能图谱可视化（D3 force graph + Prose/Graph 切换）

@@ -124,7 +124,7 @@ export interface GenerationProgress {
   detail?: string;
 }
 
-type GenerationResult = { roadmap: Roadmap; workspaceTitle: string };
+type GenerationResult = { roadmap: Roadmap; workspaceTitle: string; failedSkills?: string[] };
 
 /** SSE reader shared by both generation streams. */
 function readGenerationStream(
@@ -156,7 +156,7 @@ function readGenerationStream(
           const data = JSON.parse(line.slice(6));
           if (data.type === "error") { reject(new Error(data.error)); return; }
           if (data.type === "progress") onProgress({ stage: data.stage, progress: data.progress, detail: data.detail });
-          if (data.type === "done") resolve({ roadmap: data.roadmap, workspaceTitle: data.workspaceTitle });
+          if (data.type === "done") resolve({ roadmap: data.roadmap, workspaceTitle: data.workspaceTitle, failedSkills: data.failedSkills });
         }
       }
     } catch (e) {
@@ -243,4 +243,15 @@ export const runResearchTodo = (workspaceId: string, todoId: string) =>
   req<{ todo: import("./types").ResearchTodo; source: import("./types").Source }>(
     `/workspaces/${workspaceId}/research-todos/${todoId}/run`,
     { method: "POST", body: JSON.stringify({}) },
+  );
+
+// Skill progress
+export const updateSkillProgress = (
+  workspaceId: string,
+  skillName: string,
+  status: import("./types").SkillStatus,
+) =>
+  req<{ skillProgress: Record<string, import("./types").SkillStatus> }>(
+    `/workspaces/${workspaceId}/skill-progress`,
+    { method: "PATCH", body: JSON.stringify({ skillName, status }) },
   );

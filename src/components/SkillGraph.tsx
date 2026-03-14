@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import * as d3 from "d3";
-import type { SkillNode } from "../types";
+import type { SkillNode, SkillStatus } from "../types";
 
 // ── Color palette by category ────────────────────────────────────────────────
 
@@ -95,7 +95,25 @@ function buildGraph(skillTree: SkillNode[]): { nodes: GraphNode[]; links: GraphL
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export function SkillGraph({ skillTree }: { skillTree: SkillNode[] }) {
+const STATUS_COLORS: Record<SkillStatus, string> = {
+  not_started: "transparent",
+  learning: "#FDCB6E",
+  mastered: "#00B894",
+};
+
+const NEXT_STATUS: Record<SkillStatus, SkillStatus> = {
+  not_started: "learning",
+  learning: "mastered",
+  mastered: "not_started",
+};
+
+interface SkillGraphProps {
+  skillTree: SkillNode[];
+  skillProgress?: Record<string, SkillStatus>;
+  onStatusChange?: (skillName: string, status: SkillStatus) => void;
+}
+
+export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange }: SkillGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
@@ -233,15 +251,15 @@ export function SkillGraph({ skillTree }: { skillTree: SkillNode[] }) {
       .attr("font-weight", (d) => (d.priority === "high" ? 600 : 400))
       .attr("pointer-events", "none");
 
-    // Priority indicator (small ring for high priority)
+    // Status ring (learning=yellow, mastered=green)
     node
-      .filter((d) => d.priority === "high")
       .append("circle")
+      .attr("class", "status-ring")
       .attr("r", (d) => d.radius + 4)
       .attr("fill", "none")
-      .attr("stroke", (d) => categoryColor(categories, d.category))
-      .attr("stroke-width", 1.5)
-      .attr("stroke-opacity", 0.4);
+      .attr("stroke", (d) => STATUS_COLORS[skillProgress[d.name] ?? "not_started"])
+      .attr("stroke-width", 2.5)
+      .attr("stroke-opacity", (d) => (skillProgress[d.name] && skillProgress[d.name] !== "not_started") ? 0.8 : 0);
 
     // Hover + click
     node
@@ -272,6 +290,17 @@ export function SkillGraph({ skillTree }: { skillTree: SkillNode[] }) {
       .on("click", (event, d) => {
         event.stopPropagation();
         setSelectedNode(d);
+      })
+      .on("dblclick", (event, d) => {
+        event.stopPropagation();
+        if (!onStatusChange) return;
+        const current = skillProgress[d.name] ?? "not_started";
+        const next = NEXT_STATUS[current];
+        onStatusChange(d.name, next);
+        // Update ring immediately
+        d3.select(event.currentTarget).select(".status-ring")
+          .attr("stroke", STATUS_COLORS[next])
+          .attr("stroke-opacity", next === "not_started" ? 0 : 0.8);
       });
 
     // Tick
@@ -426,6 +455,40 @@ export function SkillGraph({ skillTree }: { skillTree: SkillNode[] }) {
                 ))}
               </div>
             </>
+          )}
+          {/* Status toggle */}
+          {onStatusChange && (
+            <div style={{ marginTop: 14 }}>
+              <p style={{ margin: "0 0 6px", fontWeight: 600, fontSize: 11, color: "var(--color-text-muted, #888)" }}>
+                Status
+              </p>
+              <div style={{ display: "flex", gap: 4 }}>
+                {(["not_started", "learning", "mastered"] as SkillStatus[]).map((s) => {
+                  const current = skillProgress[selectedNode.name] ?? "not_started";
+                  const isActive = current === s;
+                  const labels: Record<SkillStatus, string> = { not_started: "Not Started", learning: "Learning", mastered: "Mastered" };
+                  const colors: Record<SkillStatus, string> = { not_started: "#888", learning: "#e6a000", mastered: "#00a86b" };
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => onStatusChange(selectedNode.name, s)}
+                      style={{
+                        padding: "3px 10px",
+                        borderRadius: 6,
+                        fontSize: 10,
+                        fontWeight: isActive ? 600 : 400,
+                        border: `1.5px solid ${isActive ? colors[s] : "rgba(0,0,0,0.1)"}`,
+                        background: isActive ? `${colors[s]}18` : "transparent",
+                        color: isActive ? colors[s] : "var(--color-text-muted, #888)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {labels[s]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
       )}

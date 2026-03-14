@@ -57,6 +57,8 @@ export interface ResearchTodo {
   createdAt: number;
 }
 
+export type SkillStatus = "not_started" | "learning" | "mastered";
+
 export interface Workspace {
   id: string;
   title: string;
@@ -66,6 +68,7 @@ export interface Workspace {
   sources: Source[];
   insights: Insight[];
   researchTodos: ResearchTodo[];
+  skillProgress: Record<string, SkillStatus>;
 }
 
 // ── Store ────────────────────────────────────────────────────────────────────
@@ -83,6 +86,7 @@ function loadStore(): Workspace[] {
       roadmap: w.roadmap ?? null,
       insights: w.insights ?? [],
       researchTodos: w.researchTodos ?? [],
+      skillProgress: w.skillProgress ?? {},
       sources: w.sources.map((s) => ({
         ...s,
         origin: s.origin ?? ("external" as const),
@@ -295,6 +299,7 @@ app.post("/workspaces", (req, res) => {
     sources: [],
     insights: [],
     researchTodos: [],
+    skillProgress: {},
   };
   const all = loadStore();
   saveStore([workspace, ...all]);
@@ -440,7 +445,7 @@ app.post("/workspaces/:id/generate-journey", async (req, res) => {
     }
 
     updateWorkspace(workspace);
-    send({ type: "done", roadmap: workspace.roadmap, workspaceTitle: workspace.title });
+    send({ type: "done", roadmap: workspace.roadmap, workspaceTitle: workspace.title, failedSkills: output.failedSkills });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     send({ type: "error", error: message });
@@ -539,7 +544,7 @@ app.post("/workspaces/:id/sources/:sourceId/generate", async (req, res) => {
     }
 
     updateWorkspace(workspace);
-    send({ type: "done", roadmap: source.roadmap, workspaceTitle: workspace.title });
+    send({ type: "done", roadmap: source.roadmap, workspaceTitle: workspace.title, failedSkills: output.failedSkills });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("Generation failed:", message);
@@ -693,6 +698,24 @@ app.post("/workspaces/:id/research-todos/:todoId/run", async (req, res) => {
     const message = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: message });
   }
+});
+
+// ── Skill Progress (T17) ─────────────────────────────────────────────────────
+
+app.patch("/workspaces/:id/skill-progress", (req, res) => {
+  const workspace = findWorkspace(req.params.id);
+  if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
+  const { skillName, status } = req.body as { skillName?: string; status?: SkillStatus };
+  if (!skillName || !status || !["not_started", "learning", "mastered"].includes(status)) {
+    res.status(400).json({ error: "skillName and valid status required" }); return;
+  }
+  if (status === "not_started") {
+    delete workspace.skillProgress[skillName];
+  } else {
+    workspace.skillProgress[skillName] = status;
+  }
+  updateWorkspace(workspace);
+  res.json({ skillProgress: workspace.skillProgress });
 });
 
 export { app };

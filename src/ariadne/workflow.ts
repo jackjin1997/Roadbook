@@ -8,6 +8,7 @@ import type { InputType, SkillNode, ResearchResult, ProgressCallback } from "./t
 export interface GenerationOutput {
   markdown: string;
   skillTree: SkillNode[];
+  failedSkills?: string[];
 }
 
 export async function generateRoadbook(
@@ -31,7 +32,12 @@ export async function generateRoadbook(
   // 3. Research skills
   onProgress?.({ stage: "researchSkills", progress: 0, detail: "Researching…" });
   const researched = await researchSkills({ skillTree }, onProgress);
-  onProgress?.({ stage: "researchSkills", progress: 100 });
+  const { failedSkills } = researched;
+  if (failedSkills?.length) {
+    onProgress?.({ stage: "researchSkills", progress: 100, detail: `${failedSkills.length} skill(s) failed` });
+  } else {
+    onProgress?.({ stage: "researchSkills", progress: 100 });
+  }
 
   // 4. Generate roadbook markdown
   onProgress?.({ stage: "generateRoadbook", progress: 0, detail: "Generating roadbook…" });
@@ -46,6 +52,7 @@ export async function generateRoadbook(
   return {
     markdown: (result as { roadbookMarkdown: string }).roadbookMarkdown,
     skillTree,
+    failedSkills,
   };
 }
 
@@ -95,7 +102,12 @@ export async function generateJourneyRoadbook(
     roadbookMarkdown: "",
   };
   const researched = await researchSkills(state, onProgress);
-  onProgress?.({ stage: "researchSkills", progress: 100 });
+  const { failedSkills } = researched;
+  if (failedSkills?.length) {
+    onProgress?.({ stage: "researchSkills", progress: 100, detail: `${failedSkills.length} skill(s) failed` });
+  } else {
+    onProgress?.({ stage: "researchSkills", progress: 100 });
+  }
 
   // Generate
   onProgress?.({ stage: "generateRoadbook", progress: 0, detail: "Generating roadbook…" });
@@ -105,5 +117,6 @@ export async function generateJourneyRoadbook(
   return {
     markdown: (final as { roadbookMarkdown: string }).roadbookMarkdown,
     skillTree: merged,
+    failedSkills,
   };
 }

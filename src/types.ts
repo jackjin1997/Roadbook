@@ -43,6 +43,8 @@ export interface ResearchTodo {
   createdAt: number;
 }
 
+export type SkillStatus = "not_started" | "learning" | "mastered";
+
 export interface Workspace {
   id: string;
   title: string;
@@ -52,6 +54,7 @@ export interface Workspace {
   sources: Source[];
   insights: Insight[];
   researchTodos: ResearchTodo[];
+  skillProgress: Record<string, SkillStatus>;
 }
 
 export interface WorkspaceListItem {
