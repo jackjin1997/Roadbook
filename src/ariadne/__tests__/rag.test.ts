@@ -6,7 +6,7 @@ const mockEmbedDocuments = vi.fn();
 const mockEmbedQuery = vi.fn();
 
 vi.mock("@langchain/openai", () => ({
-  OpenAIEmbeddings: vi.fn(function () {
+  OpenAIEmbeddings: vi.fn(function (this: Record<string, unknown>) {
     this.embedDocuments = mockEmbedDocuments;
     this.embedQuery = mockEmbedQuery;
   }),

@@ -8,18 +8,56 @@ import Database from "better-sqlite3";
 import { readFileSync, existsSync, mkdirSync, renameSync } from "fs";
 import { join } from "path";
 
-// Workspace type — mirrors server.ts but avoids circular import
-interface Workspace {
+// Workspace type — mirrors server.ts to avoid circular import.
+// Uses SkillNode from types.ts for priority union type compatibility.
+import type { SkillNode } from "./types.js";
+
+interface Roadmap {
+  id: string;
+  markdown: string;
+  skillTree?: SkillNode[];
+  generatedAt: number;
+}
+
+interface Source {
+  id: string;
+  type: "text" | "url" | "file";
+  origin: "external" | "research";
+  reference: string;
+  snapshot: string;
+  ingestedAt: number;
+  language: string;
+  roadmap: Roadmap | null;
+  digestedSegmentIds: string[];
+}
+
+interface Insight {
+  id: string;
+  content: string;
+  sourceRef?: { sourceId: string; segment?: string };
+  createdAt: number;
+}
+
+interface ResearchTodo {
+  id: string;
+  topic: string;
+  description?: string;
+  status: "pending" | "in-progress" | "done";
+  linkedSkillNode?: string;
+  resultSourceId?: string;
+  createdAt: number;
+}
+
+export interface Workspace {
   id: string;
   title: string;
   createdAt: number;
   updatedAt: number;
-  roadmap: unknown;
-  sources: Array<{ origin?: string; digestedSegmentIds?: string[]; [k: string]: unknown }>;
-  insights: unknown[];
-  researchTodos: unknown[];
-  skillProgress: Record<string, string>;
-  [key: string]: unknown;
+  roadmap: Roadmap | null;
+  sources: Source[];
+  insights: Insight[];
+  researchTodos: ResearchTodo[];
+  skillProgress: Record<string, "not_started" | "learning" | "mastered">;
 }
 
 // ── Database setup ───────────────────────────────────────────────────────────

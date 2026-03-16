@@ -36,7 +36,10 @@ export default function Home() {
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    listWorkspaces().then(setWorkspaces).finally(() => setLoading(false));
+    listWorkspaces()
+      .then(setWorkspaces)
+      .catch(() => {/* API unreachable — show empty state */})
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -57,8 +60,10 @@ export default function Home() {
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    await deleteWorkspace(id);
-    setWorkspaces((prev) => prev.filter((w) => w.id !== id));
+    try {
+      await deleteWorkspace(id);
+      setWorkspaces((prev) => prev.filter((w) => w.id !== id));
+    } catch { /* silently fail — workspace card stays visible */ }
     setMenuId(null);
   };
 

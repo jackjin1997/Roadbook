@@ -1,6 +1,6 @@
 import type { Workspace, WorkspaceListItem, Source, Roadmap } from "./types";
 
-const API = "http://localhost:3001";
+const API = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:3001" : "");
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API}${path}`, {

@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const mockRawResults = vi.fn();
 vi.mock("@langchain/tavily", () => ({
-  TavilySearchAPIWrapper: vi.fn(function () { this.rawResults = mockRawResults; }),
+  TavilySearchAPIWrapper: vi.fn(function (this: Record<string, unknown>) { this.rawResults = mockRawResults; }),
 }));
 
 import { researchSkills } from "../nodes/researchNode.js";

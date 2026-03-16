@@ -1,6 +1,8 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import { fileURLToPath } from "url";
+import path from "path";
 
 import multer from "multer";
 import { Readability } from "@mozilla/readability";
@@ -12,7 +14,7 @@ import mammoth from "mammoth";
 const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
 import { generateRoadbook, generateJourneyRoadbook } from "./workflow.js";
-import { ingestSource, retrieve, removeSource } from "./rag.js";
+import { ingestSource, retrieve, removeSource, clearStore } from "./rag.js";
 import * as store from "./store.js";
 import { chatStream, extractRoadbookUpdate, stripRoadbookBlock } from "./chat.js";
 import type { ChatMessage } from "./chat.js";
@@ -87,7 +89,7 @@ function updateWorkspace(updated: Workspace) {
 }
 
 function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  return crypto.randomUUID();
 }
 
 // ── App ──────────────────────────────────────────────────────────────────────
@@ -286,6 +288,7 @@ app.patch("/workspaces/:id", (req, res) => {
 
 // Delete workspace
 app.delete("/workspaces/:id", (req, res) => {
+  clearStore(req.params.id);
   store.deleteWorkspace(req.params.id);
   res.json({ ok: true });
 });
@@ -733,6 +736,18 @@ app.get("/skill-index", (_req, res) => {
 
   res.json({ skills: [...skillMap.values()] });
 });
+
+// ── Production: serve frontend static files ──────────────────────────────────
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const distPath = path.resolve(__dirname, "../../dist");
+
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static(distPath));
+  app.get("*", (_req, res) => {
+    res.sendFile(path.join(distPath, "index.html"));
+  });
+}
 
 export { app };
 

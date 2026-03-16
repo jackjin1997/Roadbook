@@ -112,7 +112,7 @@ describe("SQLite store", () => {
 
     const ws = store.findById("ws2")!;
     expect(ws.roadmap).toBeDefined();
-    expect(ws.roadmap!.skillTree).toHaveLength(1);
+    expect((ws.roadmap as { skillTree: unknown[] }).skillTree).toHaveLength(1);
     expect(ws.sources).toHaveLength(1);
     expect(ws.insights).toHaveLength(1);
     expect(ws.researchTodos).toHaveLength(1);

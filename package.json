@@ -10,6 +10,7 @@
     "dev:client": "vite",
     "dev:server": "tsx watch src/ariadne/server.ts",
     "build": "tsc --project tsconfig.json --noEmit && tsc --project tsconfig.ariadne.json --noEmit && vite build",
+    "start": "NODE_ENV=production tsx src/ariadne/server.ts",
     "preview": "vite preview",
     "tauri": "tauri",
     "ariadne": "tsx src/ariadne/cli.ts",

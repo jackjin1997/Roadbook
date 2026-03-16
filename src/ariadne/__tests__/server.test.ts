@@ -60,6 +60,7 @@ vi.mock("../rag.js", () => ({
   ingestSource: vi.fn(async () => 0),
   retrieve: vi.fn(async () => []),
   removeSource: vi.fn(),
+  clearStore: vi.fn(),
 }));
 
 // ── Test server setup ─────────────────────────────────────────────────────────
