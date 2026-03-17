@@ -190,7 +190,8 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 const app = express();
 const PORT = Number(process.env.ARIADNE_PORT) || 3001;
 
-app.use(cors());
+const CORS_ORIGIN = process.env.CORS_ORIGIN;
+app.use(cors(CORS_ORIGIN ? { origin: CORS_ORIGIN.split(",") } : undefined));
 app.use(express.json({ limit: "2mb" }));
 
 app.get("/health", (_req, res) => {
@@ -744,7 +745,7 @@ const distPath = path.resolve(__dirname, "../../dist");
 
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(distPath));
-  app.get("*", (_req, res) => {
+  app.get("{*path}", (_req, res) => {
     res.sendFile(path.join(distPath, "index.html"));
   });
 }
@@ -752,8 +753,9 @@ if (process.env.NODE_ENV === "production") {
 export { app };
 
 if (process.env.NODE_ENV !== "test") {
-  app.listen(PORT, () => {
-    console.log(`\n🧶 Ariadne engine running at http://localhost:${PORT}`);
+  const HOST = process.env.HOST || "0.0.0.0";
+  app.listen(PORT, HOST, () => {
+    console.log(`\n🧶 Ariadne engine running at http://${HOST}:${PORT}`);
     logTracingStatus();
     console.log();
   });

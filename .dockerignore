@@ -1,0 +1,9 @@
+node_modules
+dist
+data
+coverage
+src-tauri/target
+.env
+.env.local
+.git
+.DS_Store
