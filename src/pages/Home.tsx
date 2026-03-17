@@ -71,7 +71,7 @@ export default function Home() {
     <div className="min-h-screen" style={{ background: "var(--color-bg)" }}>
       {/* Header */}
       <header
-        className="flex items-center px-8 py-4 border-b"
+        className="flex items-center px-4 md:px-8 py-3 md:py-4 border-b"
         style={{ borderColor: "var(--color-border)", background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)" }}
       >
         <span className="text-base font-bold gradient-text" style={{ fontFamily: "'JetBrains Mono', 'SF Mono', monospace", letterSpacing: "0.12em" }}>ROADBOOK</span>
@@ -100,7 +100,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-8 py-10">
+      <main className="max-w-6xl mx-auto px-4 md:px-8 py-6 md:py-10">
         {loading ? (
           <div className="flex justify-center pt-32">
             <div
@@ -131,7 +131,7 @@ export default function Home() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {workspaces.map((ws) => (
                 <WorkspaceCard
                   key={ws.id}
@@ -183,7 +183,7 @@ function HeroSection({ i, creating, onNew }: { i: ReturnType<typeof t>; creating
   }, [slogan]);
 
   return (
-    <div className="text-center relative" style={{ padding: "80px 0 64px" }}>
+    <div className="text-center relative" style={{ padding: "clamp(40px, 8vw, 80px) 0 clamp(32px, 6vw, 64px)" }}>
       {/* Brand label */}
       <div className="anim-fade-up" style={{ marginBottom: 32 }}>
         <span style={{

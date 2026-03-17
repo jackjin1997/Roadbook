@@ -202,9 +202,9 @@ app.get("/health", (_req, res) => {
 app.get("/models", async (_req, res) => {
   const models: string[] = [];
 
-  // Gemini models (direct Google API)
+  // Gemini models (direct Google API) — only expose cheap flash models in production
   if (process.env.GOOGLE_API_KEY) {
-    models.push("gemini-3-flash-preview", "gemini-3-pro-preview", "gemini-2.5-pro", "gemini-2.5-flash");
+    models.push("gemini-2.5-flash", "gemini-3-flash-preview");
   }
 
   // Try OpenAI-compatible proxy if configured

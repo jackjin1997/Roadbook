@@ -57,13 +57,13 @@ export default function SkillRadar() {
 
   return (
     <div className="min-h-screen" style={{ background: "var(--color-bg)" }}>
-      <header className="flex items-center px-8 py-4 border-b" style={{ borderColor: "var(--color-border)" }}>
+      <header className="flex items-center px-4 md:px-8 py-3 md:py-4 border-b" style={{ borderColor: "var(--color-border)" }}>
         <button onClick={() => navigate("/")} className="text-xl font-bold gradient-text">Roadbook</button>
         <span className="mx-2" style={{ color: "var(--color-border)" }}>/</span>
         <span className="text-sm font-medium" style={{ color: "var(--color-text)" }}>Skill Radar</span>
       </header>
 
-      <main className="max-w-5xl mx-auto px-8 py-8">
+      <main className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-8">
         {loading ? (
           <div className="flex justify-center pt-32">
             <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "var(--color-accent)", borderTopColor: "transparent" }} />
@@ -76,7 +76,7 @@ export default function SkillRadar() {
         ) : (
           <>
             {/* Summary bar */}
-            <div className="flex items-center gap-6 mb-8">
+            <div className="flex flex-wrap items-center gap-4 md:gap-6 mb-6 md:mb-8">
               <div className="flex items-center gap-3">
                 <span className="text-3xl font-bold" style={{ color: "var(--color-text)" }}>{totalSkills}</span>
                 <span className="text-sm" style={{ color: "var(--color-text-muted)" }}>skills</span>
@@ -91,7 +91,7 @@ export default function SkillRadar() {
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-4 text-xs" style={{ color: "var(--color-text-muted)" }}>
+              <div className="flex flex-wrap items-center gap-3 md:gap-4 text-xs" style={{ color: "var(--color-text-muted)" }}>
                 <span><span className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: "#00B894" }} />{mastered} mastered</span>
                 <span><span className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: "#FDCB6E" }} />{learning} learning</span>
                 <span><span className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: "var(--color-border)" }} />{totalSkills - mastered - learning} pending</span>
@@ -129,7 +129,7 @@ export default function SkillRadar() {
                   <span className="text-sm font-medium" style={{ color: "var(--color-text)" }}>{category}</span>
                   <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>({items.length})</span>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                   {items.map((skill) => (
                     <div key={skill.name}
                       className="rounded-xl px-3 py-2.5 transition-colors"

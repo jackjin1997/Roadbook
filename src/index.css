@@ -289,3 +289,35 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+
+/* ── Mobile responsive ────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .prose h1 { font-size: 1.3rem; margin-bottom: 1.25rem; padding-bottom: 0.625rem; }
+  .prose h2 { margin-top: 1.75rem; }
+  .prose h3 { font-size: 0.875rem; }
+  .prose pre { padding: 0.75rem; }
+  .prose blockquote { padding: 0.5rem 0.75rem; }
+  .hero-btn { padding: 10px 24px; font-size: 12px; }
+
+  /* Mobile panel switcher */
+  .mobile-panel-bar {
+    display: flex !important;
+  }
+  .desktop-resize-handle {
+    display: none !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .mobile-panel-bar {
+    display: none !important;
+  }
+}
+
+/* Touch device: make hover effects permanent / accessible */
+@media (hover: none) {
+  .group:hover .group-hover\:opacity-100 { opacity: 1 !important; }
+  .hero-btn:active:not(:disabled) { background: #333; }
+  .btn-gradient:active:not(:disabled) { background: #333; }
+}

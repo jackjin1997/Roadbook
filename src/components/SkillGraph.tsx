@@ -601,7 +601,7 @@ function DetailPanel({ node, categories, skillProgress, onStatusChange, onClose 
 
   return (
     <div style={{
-      position: "absolute", top: 60, right: 20, width: 310, maxHeight: "calc(100% - 100px)",
+      position: "absolute", top: 60, right: 12, width: "min(310px, calc(100% - 24px))", maxHeight: "calc(100% - 100px)",
       background: "#fff", border: "1px solid #EAEAEA", borderRadius: 10,
       boxShadow: "0 8px 32px rgba(0,0,0,0.1)", overflow: "hidden",
       fontFamily: "system-ui, sans-serif", fontSize: 13, zIndex: 20, display: "flex", flexDirection: "column",

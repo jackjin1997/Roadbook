@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useSyncExternalStore } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -129,6 +129,16 @@ function parseMarkdownSections(md: string): { id: string; heading: string; conte
 type MainTab = "source" | "journey";
 type RightTab = "chat" | "insights" | "research";
 
+const mqSubscribe = (cb: () => void) => {
+  const mq = window.matchMedia("(max-width: 768px)");
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
+};
+const mqSnapshot = () => window.matchMedia("(max-width: 768px)").matches;
+function useIsMobile() { return useSyncExternalStore(mqSubscribe, mqSnapshot); }
+
+type MobilePanel = "sources" | "main" | "chat";
+
 export default function WorkspacePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -176,6 +186,8 @@ export default function WorkspacePage() {
   const [runningTodoId, setRunningTodoId] = useState<string | null>(null);
 
   // Panels
+  const isMobile = useIsMobile();
+  const [mobilePanel, setMobilePanel] = useState<MobilePanel>("main");
   const [sourceWidth, setSourceWidth] = useState(220);
   const [chatWidth, setChatWidth] = useState(340);
   const chatBottomRef = useRef<HTMLDivElement>(null);
@@ -378,21 +390,21 @@ export default function WorkspacePage() {
   return (
     <div className="flex flex-col h-screen" style={{ background: "#FAFAFA" }}>
       {/* Header */}
-      <header className="flex items-center gap-3 px-5 py-3 border-b shrink-0" style={{ borderColor: "var(--color-border)", background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)" }}>
-        <button onClick={() => navigate("/")} className="text-xs font-bold" style={{ fontFamily: "'JetBrains Mono', 'SF Mono', monospace", letterSpacing: "0.12em", color: "#1a1a1a", textTransform: "uppercase" as const }}>ROADBOOK</button>
+      <header className="flex items-center gap-2 px-3 md:px-5 py-2.5 md:py-3 border-b shrink-0" style={{ borderColor: "var(--color-border)", background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)" }}>
+        <button onClick={() => navigate("/")} className="text-xs font-bold shrink-0" style={{ fontFamily: "'JetBrains Mono', 'SF Mono', monospace", letterSpacing: "0.12em", color: "#1a1a1a", textTransform: "uppercase" as const }}>ROADBOOK</button>
         <span style={{ color: "var(--color-border)" }}>/</span>
         {editingTitle ? (
           <input ref={titleInputRef} value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)}
             onBlur={handleRename} onKeyDown={(e) => { if (e.key === "Enter") handleRename(); if (e.key === "Escape") setEditingTitle(false); }}
-            className="text-sm font-medium bg-transparent border-b focus:outline-none px-1"
-            style={{ color: "var(--color-text)", borderColor: "var(--color-accent)", minWidth: 200 }} />
+            className="text-sm font-medium bg-transparent border-b focus:outline-none px-1 min-w-0 flex-1"
+            style={{ color: "var(--color-text)", borderColor: "var(--color-accent)" }} />
         ) : (
-          <button onClick={() => setEditingTitle(true)} className="text-sm font-medium hover:opacity-70 transition-opacity" style={{ color: "var(--color-text)" }} title="Click to rename">
+          <button onClick={() => setEditingTitle(true)} className="text-sm font-medium hover:opacity-70 transition-opacity truncate min-w-0" style={{ color: "var(--color-text)" }} title="Click to rename">
             {workspace.title}
           </button>
         )}
-        <div className="ml-auto flex items-center gap-3">
-          {models.length > 0 && (
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          {models.length > 0 && !isMobile && (
             <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}
               className="text-xs rounded-lg px-2 py-1.5 focus:outline-none cursor-pointer"
               style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-text-muted)", maxWidth: 180 }}>
@@ -407,9 +419,26 @@ export default function WorkspacePage() {
         </div>
       </header>
 
+      {/* Mobile panel switcher */}
+      <div className="mobile-panel-bar items-center border-b shrink-0" style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}>
+        {(["sources", "main", "chat"] as MobilePanel[]).map((p) => (
+          <button key={p} onClick={() => setMobilePanel(p)}
+            className="flex-1 text-xs py-2.5 font-medium transition-colors capitalize"
+            style={{
+              color: mobilePanel === p ? "var(--color-text)" : "var(--color-text-muted)",
+              borderBottom: mobilePanel === p ? "2px solid var(--color-accent)" : "2px solid transparent",
+            }}>
+            {p === "sources" ? `Sources (${workspace.sources.length})` : p === "main" ? "Roadbook" : "Chat"}
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-1 overflow-hidden" style={{ minHeight: 0 }}>
         {/* Sources panel */}
-        <div className="flex flex-col shrink-0" style={{ width: sourceWidth }}>
+        <div className="flex flex-col shrink-0" style={{
+          width: isMobile ? "100%" : sourceWidth,
+          display: isMobile && mobilePanel !== "sources" ? "none" : undefined,
+        }}>
           <div className="px-3 py-2.5 text-xs font-medium border-b flex items-center justify-between"
             style={{ color: "var(--color-text-muted)", borderColor: "var(--color-border)" }}>
             {i.sources}
@@ -478,10 +507,13 @@ export default function WorkspacePage() {
           )}
         </div>
 
-        <ResizeHandle onResize={resizeSources} />
+        <div className="desktop-resize-handle"><ResizeHandle onResize={resizeSources} /></div>
 
         {/* Main panel */}
-        <div className="flex-1 flex flex-col overflow-hidden" style={{ background: "var(--color-surface)" }}>
+        <div className="flex-1 flex flex-col overflow-hidden" style={{
+          background: "var(--color-surface)",
+          display: isMobile && mobilePanel !== "main" ? "none" : undefined,
+        }}>
           {/* Tab bar */}
           <div className="flex items-center gap-1 px-4 pt-3 pb-0 border-b shrink-0" style={{ borderColor: "var(--color-border)" }}>
             {(["source", "journey"] as MainTab[]).map((tab) => (
@@ -557,7 +589,7 @@ export default function WorkspacePage() {
                     </div>
                   ) : (
                     /* ── Source prose view ── */
-                    <div className="px-10 py-8 max-w-3xl mx-auto">
+                    <div className="px-4 md:px-10 py-6 md:py-8 max-w-3xl mx-auto">
                       <div className="flex items-center justify-between mb-8">
                         <p className="text-xs flex items-center gap-1.5" style={{ color: "var(--color-text-muted)" }}>
                           {selectedSource.origin === "research" && <span>🔬</span>}
@@ -631,7 +663,7 @@ export default function WorkspacePage() {
                   </div>
                 ) : (
                   /* ── Prose view ── */
-                  <div className="px-10 py-8 max-w-3xl mx-auto">
+                  <div className="px-4 md:px-10 py-6 md:py-8 max-w-3xl mx-auto">
                     <div className="flex items-center justify-between mb-8">
                       <div className="flex items-center gap-3">
                         <p className="text-xs" style={{ color: "#888", opacity: 0.6 }}>
@@ -692,10 +724,14 @@ export default function WorkspacePage() {
           </div>
         </div>
 
-        <ResizeHandle onResize={resizeChat} />
+        <div className="desktop-resize-handle"><ResizeHandle onResize={resizeChat} /></div>
 
         {/* Right panel: Chat / Insights / Research */}
-        <div className="flex flex-col shrink-0" style={{ width: chatWidth, background: "var(--color-bg)" }}>
+        <div className="flex flex-col shrink-0" style={{
+          width: isMobile ? "100%" : chatWidth,
+          background: "var(--color-bg)",
+          display: isMobile && mobilePanel !== "chat" ? "none" : undefined,
+        }}>
           {/* Tab bar */}
           <div className="flex border-b shrink-0" style={{ borderColor: "var(--color-border)" }}>
             {(["chat", "insights", "research"] as RightTab[]).map((tab) => (

@@ -12,7 +12,7 @@ interface ModelConfig {
 
 const DEFAULT_CONFIG: ModelConfig = {
   provider: "gemini",
-  modelName: "gemini-3-flash-preview",
+  modelName: "gemini-2.5-flash",
 };
 
 let currentConfig: ModelConfig = { ...DEFAULT_CONFIG };
@@ -34,7 +34,7 @@ export function getModel(): BaseChatModel {
   switch (currentConfig.provider) {
     case "gemini":
       return new ChatGoogleGenerativeAI({
-        model: currentConfig.modelName ?? "gemini-3-flash-preview",
+        model: currentConfig.modelName ?? "gemini-2.5-flash",
         temperature: 0.3,
         apiKey: process.env.GOOGLE_API_KEY,
       });

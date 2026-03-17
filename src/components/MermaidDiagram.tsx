@@ -154,11 +154,11 @@ export function MermaidDiagram({ code }: { code: string }) {
       onDoubleClick={reset}
       style={{
         position: "relative",
-        height: 460,
+        height: "min(460px, 60vh)",
         overflow: "hidden",
         background: TINT,
-        // Break out of prose px-10 (2.5rem) padding to span full content width
-        margin: "3rem -2.5rem",
+        // Break out of prose padding to span full content width
+        margin: "2rem -1rem",
         borderTop: "1px solid rgba(0,0,0,0.06)",
         borderBottom: "1px solid rgba(0,0,0,0.06)",
         cursor: "grab",
