@@ -27,7 +27,9 @@ import type { ChatMessage, GenerationProgress } from "../api";
 import type { Workspace, Source, Insight, ResearchTodo } from "../types";
 import JSZip from "jszip";
 import ResizeHandle from "../components/ResizeHandle";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useToast } from "../contexts/ToastContext";
 import { t, LANGUAGES } from "../i18n";
 
 // Markdown renderer with mermaid diagram support
@@ -196,7 +198,11 @@ export default function WorkspacePage() {
   const resizeSources = useCallback((delta: number) => setSourceWidth((w) => Math.max(160, Math.min(400, w + delta))), []);
   const resizeChat = useCallback((delta: number) => setChatWidth((w) => Math.max(260, Math.min(600, w - delta))), []);
   const { language, setLanguage } = useLanguage();
+  const toast = useToast();
   const i = t(language);
+
+  // Confirm delete state
+  const [confirmDeleteSourceId, setConfirmDeleteSourceId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -220,8 +226,13 @@ export default function WorkspacePage() {
 
   const handleRename = async () => {
     if (!workspace || !titleDraft.trim()) { setEditingTitle(false); return; }
-    const updated = await renameWorkspace(workspace.id, titleDraft.trim());
-    setWorkspace((w) => w ? { ...w, title: updated.title } : w);
+    try {
+      const updated = await renameWorkspace(workspace.id, titleDraft.trim());
+      setWorkspace((w) => w ? { ...w, title: updated.title } : w);
+    } catch {
+      toast(i.renameFailed, "error");
+      setTitleDraft(workspace.title);
+    }
     setEditingTitle(false);
   };
 
@@ -237,6 +248,9 @@ export default function WorkspacePage() {
       setSelectedSourceId(source.id);
       setSourceDraft("");
       setShowAddSource(false);
+      toast(i.sourceAdded, "success");
+    } catch {
+      toast(i.sourceAddFailed, "error");
     } finally { setAddingSource(false); }
   };
 
@@ -248,16 +262,25 @@ export default function WorkspacePage() {
       setWorkspace((w) => w ? { ...w, sources: [...w.sources, source] } : w);
       setSelectedSourceId(source.id);
       setShowAddSource(false);
+      toast(i.sourceAdded, "success");
+    } catch {
+      toast(i.sourceAddFailed, "error");
     } finally { setAddingSource(false); }
   };
 
   const handleDeleteSource = async (sourceId: string) => {
     if (!workspace) return;
-    await deleteSource(workspace.id, sourceId);
-    const remaining = workspace.sources.filter((s) => s.id !== sourceId);
-    setWorkspace((w) => w ? { ...w, sources: remaining } : w);
-    if (selectedSourceId === sourceId) setSelectedSourceId(remaining[0]?.id ?? null);
-    setCheckedSourceIds((s) => { const n = new Set(s); n.delete(sourceId); return n; });
+    try {
+      await deleteSource(workspace.id, sourceId);
+      const remaining = workspace.sources.filter((s) => s.id !== sourceId);
+      setWorkspace((w) => w ? { ...w, sources: remaining } : w);
+      if (selectedSourceId === sourceId) setSelectedSourceId(remaining[0]?.id ?? null);
+      setCheckedSourceIds((s) => { const n = new Set(s); n.delete(sourceId); return n; });
+      toast(i.deleted, "success");
+    } catch {
+      toast(i.deleteFailed, "error");
+    }
+    setConfirmDeleteSourceId(null);
   };
 
   const handleGenerate = async (sourceId: string) => {
@@ -270,6 +293,9 @@ export default function WorkspacePage() {
       setWorkspace((w) => w ? { ...w, title: workspaceTitle, sources: w.sources.map((s) => s.id === sourceId ? { ...s, roadmap } : s) } : w);
       setTitleDraft(workspaceTitle);
       if (failedSkills?.length) setFailedSkillsNotice(failedSkills);
+      toast(i.generationComplete, "success");
+    } catch {
+      toast(i.generationFailed, "error");
     } finally { setGeneratingId(null); setGenProgress(null); }
   };
 
@@ -285,6 +311,9 @@ export default function WorkspacePage() {
       setTitleDraft(workspaceTitle);
       setMainTab("journey");
       if (failedSkills?.length) setFailedSkillsNotice(failedSkills);
+      toast(i.generationComplete, "success");
+    } catch {
+      toast(i.generationFailed, "error");
     } finally { setGeneratingJourney(false); setGenProgress(null); }
   };
 
@@ -305,6 +334,9 @@ export default function WorkspacePage() {
       setCheckedSegmentIds(new Set());
       setDigestMode(false);
       setMainTab("journey");
+      toast(i.digestComplete, "success");
+    } catch {
+      toast(i.generationFailed, "error");
     } finally { setDigesting(false); }
   };
 
@@ -330,6 +362,10 @@ export default function WorkspacePage() {
       if (result.roadbookUpdated && result.roadmap && selectedSourceId) {
         setWorkspace((w) => w ? { ...w, sources: w.sources.map((s) => s.id === selectedSourceId ? { ...s, roadmap: result.roadmap } : s) } : w);
       }
+    } catch {
+      toast(i.chatSendFailed, "error");
+      // Remove the empty assistant placeholder
+      setChatMessages((msgs) => msgs.filter((m) => m.content !== "" || m.role !== "assistant"));
     } finally { setChatLoading(false); }
   };
 
@@ -369,6 +405,13 @@ export default function WorkspacePage() {
         sources: [...w.sources, source],
         researchTodos: w.researchTodos.map((t) => t.id === todoId ? todo : t),
       } : w);
+      // Auto-navigate to the new source
+      setSelectedSourceId(source.id);
+      setMainTab("source");
+      if (isMobile) setMobilePanel("sources");
+      toast(i.researchComplete, "success");
+    } catch {
+      toast(i.generationFailed, "error");
     } finally { setRunningTodoId(null); }
   };
 
@@ -404,11 +447,11 @@ export default function WorkspacePage() {
           </button>
         )}
         <div className="ml-auto flex items-center gap-2 shrink-0">
-          {models.length > 0 && !isMobile && (
+          {models.length > 0 && (
             <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}
               className="text-xs rounded-lg px-2 py-1.5 focus:outline-none cursor-pointer"
-              style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-text-muted)", maxWidth: 180 }}>
-              {models.map((m) => <option key={m} value={m}>{m}</option>)}
+              style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-text-muted)", maxWidth: isMobile ? 100 : 180 }}>
+              {models.map((m) => <option key={m} value={m}>{m.replace(/^.*\//, "")}</option>)}
             </select>
           )}
           <select value={language} onChange={(e) => setLanguage(e.target.value)}
@@ -457,7 +500,7 @@ export default function WorkspacePage() {
                 digestStatus={digestStatus(source)}
                 onSelect={() => { setSelectedSourceId(source.id); setMainTab("source"); setDigestMode(false); setCheckedSegmentIds(new Set()); }}
                 onCheck={(v) => setCheckedSourceIds((s) => { const n = new Set(s); v ? n.add(source.id) : n.delete(source.id); return n; })}
-                onDelete={() => handleDeleteSource(source.id)}
+                onDelete={() => setConfirmDeleteSourceId(source.id)}
                 onGenerate={() => handleGenerate(source.id)}
                 i={i}
               />
@@ -710,8 +753,8 @@ export default function WorkspacePage() {
                       )
                     ) : (
                       <>
-                        <p className="text-sm">No Journey Roadmap yet.</p>
-                        <p className="text-xs opacity-60">Select sources in the left panel (or use all) and click Generate Journey.</p>
+                        <p className="text-sm">{i.noJourneyYet}</p>
+                        <p className="text-xs opacity-60 max-w-xs">{i.journeyHint}</p>
                         <button onClick={handleGenerateJourney} className="btn-gradient px-5 py-2 rounded-lg text-sm font-medium">
                           Generate Journey
                         </button>
@@ -847,6 +890,15 @@ export default function WorkspacePage() {
           )}
         </div>
       </div>
+
+      {/* Confirm delete source dialog */}
+      <ConfirmDialog
+        open={confirmDeleteSourceId !== null}
+        title={i.confirmDeleteTitle}
+        message={i.confirmDeleteSource}
+        onConfirm={() => confirmDeleteSourceId && handleDeleteSource(confirmDeleteSourceId)}
+        onCancel={() => setConfirmDeleteSourceId(null)}
+      />
     </div>
   );
 }
@@ -1154,7 +1206,7 @@ function SourceItem({ source, selected, checked, generating, digestStatus, onSel
           {!source.roadmap && (
             <button onClick={(e) => { e.stopPropagation(); onGenerate(); }} disabled={generating}
               className="btn-gradient text-[10px] px-2 py-0.5 rounded-md disabled:opacity-40">
-              {generating ? "…" : "生成路书"}
+              {generating ? "…" : i.generateSourceRoadmap}
             </button>
           )}
         </div>

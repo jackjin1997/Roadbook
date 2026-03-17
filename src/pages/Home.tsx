@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { listWorkspaces, createWorkspace, deleteWorkspace } from "../api";
 import type { WorkspaceListItem } from "../types";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useToast } from "../contexts/ToastContext";
 import { t, LANGUAGES } from "../i18n";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 const CARD_GRADIENTS = [
   "#1a1a1a",
@@ -30,17 +32,26 @@ export default function Home() {
   const navigate = useNavigate();
   const { language, setLanguage } = useLanguage();
   const i = t(language);
+  const toast = useToast();
   const [workspaces, setWorkspaces] = useState<WorkspaceListItem[]>([]);
   const [menuId, setMenuId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [error, setError] = useState(false);
 
-  useEffect(() => {
+  // Confirm delete state
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  const fetchWorkspaces = () => {
+    setLoading(true);
+    setError(false);
     listWorkspaces()
       .then(setWorkspaces)
-      .catch(() => {/* API unreachable — show empty state */})
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { fetchWorkspaces(); }, []);
 
   useEffect(() => {
     const close = () => setMenuId(null);
@@ -53,18 +64,23 @@ export default function Home() {
     try {
       const ws = await createWorkspace();
       navigate(`/workspace/${ws.id}`);
+    } catch {
+      toast(i.serverUnreachable, "error");
     } finally {
       setCreating(false);
     }
   };
 
-  const handleDelete = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDelete = async (id: string) => {
     try {
       await deleteWorkspace(id);
       setWorkspaces((prev) => prev.filter((w) => w.id !== id));
-    } catch { /* silently fail — workspace card stays visible */ }
+      toast(i.deleted, "success");
+    } catch {
+      toast(i.deleteFailed, "error");
+    }
     setMenuId(null);
+    setConfirmDeleteId(null);
   };
 
   return (
@@ -108,6 +124,14 @@ export default function Home() {
               style={{ borderColor: "var(--color-accent)", borderTopColor: "transparent" }}
             />
           </div>
+        ) : error ? (
+          /* Error state */
+          <div className="flex flex-col items-center justify-center pt-32 gap-4">
+            <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>{i.serverUnreachable}</p>
+            <button onClick={fetchWorkspaces} className="btn-gradient px-5 py-2 rounded-lg text-sm font-medium">
+              {i.retry}
+            </button>
+          </div>
         ) : (
           <>
             {/* Hero - only when empty */}
@@ -143,7 +167,11 @@ export default function Home() {
                     e.stopPropagation();
                     setMenuId(menuId === ws.id ? null : ws.id);
                   }}
-                  onDelete={(e) => handleDelete(ws.id, e)}
+                  onDelete={(e) => {
+                    e.stopPropagation();
+                    setMenuId(null);
+                    setConfirmDeleteId(ws.id);
+                  }}
                   i={i}
                 />
               ))}
@@ -151,6 +179,15 @@ export default function Home() {
           </>
         )}
       </main>
+
+      {/* Confirm delete dialog */}
+      <ConfirmDialog
+        open={confirmDeleteId !== null}
+        title={i.confirmDeleteTitle}
+        message={i.confirmDeleteWorkspace}
+        onConfirm={() => confirmDeleteId && handleDelete(confirmDeleteId)}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </div>
   );
 }

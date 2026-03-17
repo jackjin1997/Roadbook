@@ -315,6 +315,38 @@ body {
   }
 }
 
+/* ── Toast animation ──────────────────────────────────────────────────────── */
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.toast-enter {
+  animation: toast-in 0.25s ease forwards;
+}
+
+/* ── Confirm dialog ──────────────────────────────────────────────────────── */
+
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
+}
+.confirm-dialog {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 24px;
+  max-width: 380px;
+  width: 90%;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
 /* Touch device: make hover effects permanent / accessible */
 @media (hover: none) {
   .group:hover .group-hover\:opacity-100 { opacity: 1 !important; }
