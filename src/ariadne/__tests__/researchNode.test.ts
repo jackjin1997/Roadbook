@@ -57,7 +57,7 @@ describe("researchSkills", () => {
     expect(result.researchResults![0].skillName).toBe("TypeScript");
     expect(result.researchResults![0].resources).toHaveLength(1);
     expect(result.researchResults![0].resources[0].title).toBe("TypeScript Guide");
-    expect(result.failedSkills).toBeUndefined();
+    expect(result.failedSkills).toEqual([]);
   });
 
   it("prioritizes high > medium > low and caps at MAX_SKILLS=5", async () => {

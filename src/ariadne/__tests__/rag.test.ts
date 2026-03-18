@@ -12,7 +12,7 @@ vi.mock("@langchain/openai", () => ({
   }),
 }));
 
-import { splitText, ingestSource, retrieve, removeSource, clearStore, isIndexed } from "../rag.js";
+import { splitText, ingestSource, retrieve, removeSource, clearStore, isIndexed, getStoreStats } from "../rag.js";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -178,5 +178,44 @@ describe("clearStore", () => {
     expect(isIndexed("test-ws", "doc.txt")).toBe(false);
     const results = await retrieve("test-ws", "query");
     expect(results).toEqual([]);
+  });
+});
+
+// ── getStoreStats ──────────────────────────────────────────────────────────
+
+describe("getStoreStats", () => {
+  it("returns zeros for unknown workspace", () => {
+    const stats = getStoreStats("unknown-ws");
+    expect(stats).toEqual({ chunkCount: 0, sourceCount: 0, sources: [] });
+  });
+
+  it("returns correct stats after ingestion", async () => {
+    await ingestSource("test-ws", "doc-a.txt", "Hello world");
+    await ingestSource("test-ws", "doc-b.txt", "Another document");
+    const stats = getStoreStats("test-ws");
+    expect(stats.chunkCount).toBe(2);
+    expect(stats.sourceCount).toBe(2);
+    expect(stats.sources).toContain("doc-a.txt");
+    expect(stats.sources).toContain("doc-b.txt");
+  });
+
+  it("reflects removal", async () => {
+    await ingestSource("test-ws", "to-remove.txt", "content");
+    removeSource("test-ws", "to-remove.txt");
+    const stats = getStoreStats("test-ws");
+    expect(stats.sources).not.toContain("to-remove.txt");
+  });
+});
+
+// ── retrieve edge cases ────────────────────────────────────────────────────
+
+describe("retrieve edge cases", () => {
+  it("handles empty query string", async () => {
+    mockEmbedDocuments.mockResolvedValue([[1, 0, 0]]);
+    mockEmbedQuery.mockResolvedValue([1, 0, 0]);
+    await ingestSource("test-ws", "doc.txt", "some content");
+    const results = await retrieve("test-ws", "", 5);
+    // Should still return results (cosine similarity computed against empty-query embedding)
+    expect(results).toHaveLength(1);
   });
 });

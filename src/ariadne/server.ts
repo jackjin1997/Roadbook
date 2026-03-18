@@ -14,11 +14,12 @@ import mammoth from "mammoth";
 const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
 import { generateRoadbook, generateJourneyRoadbook } from "./workflow.js";
+import type { ModelOverride } from "./workflow.js";
 import { ingestSource, retrieve, removeSource, clearStore } from "./rag.js";
 import * as store from "./store.js";
 import { chatStream, extractRoadbookUpdate, stripRoadbookBlock } from "./chat.js";
 import type { ChatMessage } from "./chat.js";
-import { setModelConfig, inferProvider, getModel } from "./config.js";
+import { inferProvider, getModel } from "./config.js";
 import type { ModelProvider } from "./config.js";
 import { logTracingStatus } from "./tracing.js";
 
@@ -393,7 +394,9 @@ app.post("/workspaces/:id/generate-journey", async (req, res) => {
     : workspace.sources;
   if (selected.length === 0) { res.status(400).json({ error: "No sources selected" }); return; }
 
-  if (model) setModelConfig({ provider: inferProvider(model), modelName: model });
+  const modelOverride: ModelOverride | undefined = model
+    ? { provider: inferProvider(model), modelName: model }
+    : undefined;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -402,7 +405,7 @@ app.post("/workspaces/:id/generate-journey", async (req, res) => {
 
   try {
     const snapshots = selected.map((s) => ({ text: s.snapshot, language: s.language }));
-    const output = await generateJourneyRoadbook(snapshots, (evt) => send({ type: "progress", ...evt }));
+    const output = await generateJourneyRoadbook(snapshots, (evt) => send({ type: "progress", ...evt }), modelOverride);
     workspace.roadmap = { id: workspace.roadmap?.id ?? uid(), markdown: output.markdown, skillTree: output.skillTree, generatedAt: Date.now() };
 
     if (workspace.title === "New Journey") {
@@ -417,7 +420,6 @@ app.post("/workspaces/:id/generate-journey", async (req, res) => {
     send({ type: "error", error: message });
   } finally {
     res.end();
-    setModelConfig({ provider: "gemini", modelName: "gemini-3-flash-preview" });
   }
 });
 
@@ -509,7 +511,9 @@ app.post("/workspaces/:id/sources/:sourceId/generate", async (req, res) => {
   if (!source) { res.status(404).json({ error: "Source not found" }); return; }
 
   const { model } = req.body as { provider?: ModelProvider; model?: string };
-  if (model) setModelConfig({ provider: inferProvider(model), modelName: model });
+  const genModelOverride: ModelOverride | undefined = model
+    ? { provider: inferProvider(model), modelName: model }
+    : undefined;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -517,7 +521,7 @@ app.post("/workspaces/:id/sources/:sourceId/generate", async (req, res) => {
   const send = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
   try {
-    const output = await generateRoadbook(source.snapshot, source.language, (evt) => send({ type: "progress", ...evt }));
+    const output = await generateRoadbook(source.snapshot, source.language, (evt) => send({ type: "progress", ...evt }), genModelOverride);
     source.roadmap = { id: uid(), markdown: output.markdown, skillTree: output.skillTree, generatedAt: Date.now() };
 
     if (workspace.title === "New Journey") {
@@ -533,7 +537,6 @@ app.post("/workspaces/:id/sources/:sourceId/generate", async (req, res) => {
     send({ type: "error", error: message });
   } finally {
     res.end();
-    setModelConfig({ provider: "gemini", modelName: "gemini-3-flash-preview" });
   }
 });
 

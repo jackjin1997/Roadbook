@@ -81,6 +81,31 @@ describe("setModelConfig / getModel", () => {
     setModelConfig({ provider: "unknown" });
     expect(() => getModel()).toThrow("Unknown provider: unknown");
   });
+
+  it("override takes priority over global config", () => {
+    setModelConfig({ provider: "openai", modelName: "gpt-4o" });
+    const model = getModel({ provider: "gemini", modelName: "gemini-2.5-flash" }) as unknown as { _tag: string };
+    expect(model._tag).toBe("gemini");
+    expect(ChatGoogleGenerativeAI).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "gemini-2.5-flash" }),
+    );
+  });
+
+  it("partial override uses global config for missing fields", () => {
+    setModelConfig({ provider: "openai", modelName: "gpt-4o" });
+    const model = getModel({ modelName: "gpt-4-turbo" }) as unknown as { _tag: string };
+    // provider falls back to global "openai"
+    expect(model._tag).toBe("openai");
+    expect(ChatOpenAI).toHaveBeenCalledWith(
+      expect.objectContaining({ modelName: "gpt-4-turbo" }),
+    );
+  });
+
+  it("no override uses global config", () => {
+    setModelConfig({ provider: "anthropic", modelName: "claude-sonnet-4-6" });
+    const model = getModel() as unknown as { _tag: string };
+    expect(model._tag).toBe("anthropic");
+  });
 });
 
 describe("inferProvider", () => {

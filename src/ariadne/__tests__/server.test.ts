@@ -565,3 +565,31 @@ describe("Data migration (old workspaces)", () => {
     expect(typeof ws.skillProgress).toBe("object");
   });
 });
+
+describe("Concurrent generate requests", () => {
+  it("concurrent generates do not interfere with each other", async () => {
+    // Create two separate workspaces with sources
+    const { data: ws1 } = await post<{ id: string }>("/workspaces", { title: "Concurrent A" });
+    const { data: ws2 } = await post<{ id: string }>("/workspaces", { title: "Concurrent B" });
+    const { data: src1 } = await post<{ id: string }>(`/workspaces/${ws1.id}/sources`, { text: "React guide" });
+    const { data: src2 } = await post<{ id: string }>(`/workspaces/${ws2.id}/sources`, { text: "Vue guide" });
+
+    // Fire both generate requests concurrently with different models
+    const [res1, res2] = await Promise.all([
+      ssePost<{ roadmap: { markdown: string } }>(
+        `/workspaces/${ws1.id}/sources/${src1.id}/generate`,
+        { model: "gemini-2.5-flash" },
+      ),
+      ssePost<{ roadmap: { markdown: string } }>(
+        `/workspaces/${ws2.id}/sources/${src2.id}/generate`,
+        { model: "gemini-3-flash-preview" },
+      ),
+    ]);
+
+    // Both should succeed independently
+    expect(res1.status).toBe(200);
+    expect(res2.status).toBe(200);
+    expect(res1.data.roadmap.markdown).toBeTruthy();
+    expect(res2.data.roadmap.markdown).toBeTruthy();
+  });
+});

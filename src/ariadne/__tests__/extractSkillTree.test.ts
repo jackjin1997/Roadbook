@@ -121,11 +121,58 @@ describe("extractSkillTree", () => {
     expect(systemPrompt).toContain("Concept");
   });
 
-  it("propagates model errors", async () => {
+  it("propagates model errors after retries", async () => {
     mockInvoke.mockRejectedValue(new Error("rate limit exceeded"));
 
     await expect(
       extractSkillTree({ input: "test", inputType: "jd", language: "English" }),
     ).rejects.toThrow("rate limit exceeded");
+
+    // Should have been called 3 times (1 initial + 2 retries)
+    expect(mockInvoke).toHaveBeenCalledTimes(3);
+  });
+
+  it("retries and succeeds on transient failure", async () => {
+    mockInvoke
+      .mockRejectedValueOnce(new Error("transient"))
+      .mockResolvedValueOnce(MOCK_RESULT);
+
+    const result = await extractSkillTree({ input: "test", inputType: "jd", language: "English" });
+    expect(result.skillTree).toHaveLength(2);
+    expect(mockInvoke).toHaveBeenCalledTimes(2);
+  });
+
+  it("throws on empty skillTree", async () => {
+    mockInvoke.mockResolvedValue({ ...MOCK_RESULT, skillTree: [] });
+
+    await expect(
+      extractSkillTree({ input: "test", inputType: "jd", language: "English" }),
+    ).rejects.toThrow("empty skill tree");
+  });
+
+  it("throws on timeout when model hangs", async () => {
+    // Instead of waiting for real timeouts, verify that the timeout rejection
+    // propagates correctly by simulating what Promise.race does
+    mockInvoke.mockImplementation(
+      () => new Promise((_resolve, reject) => {
+        // Simulate the timeout firing before the model responds
+        setTimeout(() => reject(new Error("extractSkillTree timed out")), 50);
+      }),
+    );
+
+    await expect(
+      extractSkillTree({ input: "test", inputType: "jd", language: "English" }),
+    ).rejects.toThrow("timed out");
+  });
+
+  it("accepts model override parameter", async () => {
+    mockInvoke.mockResolvedValue(MOCK_RESULT);
+
+    await extractSkillTree(
+      { input: "test", inputType: "jd", language: "English" },
+      { provider: "openai", modelName: "gpt-4o" },
+    );
+
+    expect(mockInvoke).toHaveBeenCalledOnce();
   });
 });

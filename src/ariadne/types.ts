@@ -40,6 +40,7 @@ export interface RoadbookState {
   title: string;
   skillTree: SkillNode[];
   researchResults: ResearchResult[];
+  failedSkills: string[];
   roadbookMarkdown: string;
 }
 

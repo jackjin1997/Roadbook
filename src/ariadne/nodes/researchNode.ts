@@ -1,23 +1,10 @@
 import { TavilySearchAPIWrapper } from "@langchain/tavily";
 import type { RoadbookState, ResearchResult, ProgressCallback } from "../types.js";
+import { withRetry } from "../utils.js";
 
 const TIMEOUT_MS = 8000;
 const MAX_RETRIES = 2;
 const MAX_SKILLS = 5;
-
-/** Retry with exponential backoff. */
-async function withRetry<T>(fn: () => Promise<T>, retries = MAX_RETRIES): Promise<T> {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      return await fn();
-    } catch (err) {
-      if (attempt === retries) throw err;
-      const delay = 500 * 2 ** attempt; // 500ms, 1s
-      await new Promise((r) => setTimeout(r, delay));
-    }
-  }
-  throw new Error("unreachable");
-}
 
 /**
  * Research each skill node via Tavily Search.
@@ -28,7 +15,7 @@ async function withRetry<T>(fn: () => Promise<T>, retries = MAX_RETRIES): Promis
 export async function researchSkills(
   state: Pick<RoadbookState, "skillTree">,
   onProgress?: ProgressCallback,
-): Promise<Partial<RoadbookState> & { failedSkills?: string[] }> {
+): Promise<Pick<RoadbookState, "researchResults" | "failedSkills">> {
   if (!process.env.TAVILY_API_KEY) {
     console.warn("TAVILY_API_KEY not set — skipping research phase");
     return {
@@ -63,7 +50,7 @@ export async function researchSkills(
         ]);
       };
 
-      const response = await withRetry(search);
+      const response = await withRetry(search, MAX_RETRIES);
       researched++;
       onProgress?.({ stage: "researchSkills", progress: Math.round((researched / total) * 100), detail: `${researched}/${total}: ${skill.name}` });
       return {
@@ -85,5 +72,5 @@ export async function researchSkills(
     return { skillName: prioritized[i]!.name, resources: [] };
   });
 
-  return { researchResults: results, failedSkills: failedSkills.length > 0 ? failedSkills : undefined };
+  return { researchResults: results, failedSkills };
 }

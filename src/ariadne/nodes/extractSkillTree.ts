@@ -1,6 +1,10 @@
 import { getModel } from "../config.js";
 import { SkillTreeOutputSchema } from "../types.js";
 import type { RoadbookState } from "../types.js";
+import { withRetry } from "../utils.js";
+
+const TIMEOUT_MS = 30_000;
+const MAX_RETRIES = 2;
 
 function buildSystemPrompt(language: string): string {
   return `You are Ariadne, a professional technical skill tree analysis engine.
@@ -42,19 +46,34 @@ Output must be valid JSON with this structure:
 
 export async function extractSkillTree(
   state: Pick<RoadbookState, "input" | "inputType" | "language">,
+  modelOverride?: { provider: string; modelName: string },
 ): Promise<Partial<RoadbookState>> {
-  const model = getModel();
+  const model = getModel(modelOverride);
   const structured = model.withStructuredOutput(SkillTreeOutputSchema, {
     method: "functionCalling",
   });
 
-  const result = await structured.invoke([
-    { role: "system", content: buildSystemPrompt(state.language ?? "English") },
-    {
-      role: "user",
-      content: `Input type: ${state.inputType}\n\n---\n\n${state.input}`,
-    },
-  ]);
+  const invoke = () => {
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("extractSkillTree timed out")), TIMEOUT_MS),
+    );
+    return Promise.race([
+      structured.invoke([
+        { role: "system", content: buildSystemPrompt(state.language ?? "English") },
+        {
+          role: "user",
+          content: `Input type: ${state.inputType}\n\n---\n\n${state.input}`,
+        },
+      ]),
+      timeoutPromise,
+    ]);
+  };
+
+  const result = await withRetry(invoke, MAX_RETRIES);
+
+  if (!result.skillTree || result.skillTree.length === 0) {
+    throw new Error("extractSkillTree returned an empty skill tree");
+  }
 
   return {
     inputType: result.inputType,

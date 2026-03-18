@@ -195,4 +195,30 @@ describe("chatStream", () => {
     }
     expect(chunks).toEqual(["Hello", " world", "!"]);
   });
+
+  it("propagates stream errors to the consumer", async () => {
+    async function* failingStream() {
+      yield { content: "Start" };
+      throw new Error("stream interrupted");
+    }
+    mockStream.mockResolvedValue(failingStream());
+
+    const chunks: string[] = [];
+    await expect(async () => {
+      for await (const chunk of chatStream({ ...baseOpts })) {
+        chunks.push(chunk);
+      }
+    }).rejects.toThrow("stream interrupted");
+    expect(chunks).toEqual(["Start"]);
+  });
+
+  it("propagates stream creation errors", async () => {
+    mockStream.mockRejectedValue(new Error("model unavailable"));
+
+    await expect(async () => {
+      for await (const _chunk of chatStream({ ...baseOpts })) {
+        // should not reach here
+      }
+    }).rejects.toThrow("model unavailable");
+  });
 });

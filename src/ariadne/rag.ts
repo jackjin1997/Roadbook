@@ -158,6 +158,20 @@ export function isIndexed(workspaceId: string, sourceRef: string): boolean {
   return store ? store.some((e) => e.chunk.sourceRef === sourceRef) : false;
 }
 
+/**
+ * Get stats about the vector store for a workspace (for observability).
+ */
+export function getStoreStats(workspaceId: string): {
+  chunkCount: number;
+  sourceCount: number;
+  sources: string[];
+} {
+  const store = stores.get(workspaceId);
+  if (!store) return { chunkCount: 0, sourceCount: 0, sources: [] };
+  const sources = [...new Set(store.map((e) => e.chunk.sourceRef))];
+  return { chunkCount: store.length, sourceCount: sources.length, sources };
+}
+
 // ── Cosine similarity ────────────────────────────────────────────────────────
 
 function cosineSimilarity(a: number[], b: number[]): number {

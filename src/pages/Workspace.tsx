@@ -292,7 +292,7 @@ export default function WorkspacePage() {
       const { roadmap, workspaceTitle, failedSkills } = await generateRoadmap(workspace.id, sourceId, selectedModel || undefined, setGenProgress);
       setWorkspace((w) => w ? { ...w, title: workspaceTitle, sources: w.sources.map((s) => s.id === sourceId ? { ...s, roadmap } : s) } : w);
       setTitleDraft(workspaceTitle);
-      if (failedSkills?.length) setFailedSkillsNotice(failedSkills);
+      if (failedSkills && failedSkills.length > 0) setFailedSkillsNotice(failedSkills);
       toast(i.generationComplete, "success");
     } catch {
       toast(i.generationFailed, "error");
@@ -310,7 +310,7 @@ export default function WorkspacePage() {
       setWorkspace((w) => w ? { ...w, roadmap, title: workspaceTitle } : w);
       setTitleDraft(workspaceTitle);
       setMainTab("journey");
-      if (failedSkills?.length) setFailedSkillsNotice(failedSkills);
+      if (failedSkills && failedSkills.length > 0) setFailedSkillsNotice(failedSkills);
       toast(i.generationComplete, "success");
     } catch {
       toast(i.generationFailed, "error");
