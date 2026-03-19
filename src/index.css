@@ -7,10 +7,11 @@
   --color-surface-hover: #F5F5F5;
   --color-border: #E0E0E0;
   --color-text: #1a1a1a;
-  --color-text-muted: #888;
+  --color-text-muted: #666;
   --color-accent: #1a1a1a;
   --color-accent-hover: #333;
   --color-accent-pink: #E91E63;
+  --color-surface-dim: #F8F8F8;
   --gradient-accent: linear-gradient(135deg, #1a1a1a, #444);
 }
 
@@ -31,6 +32,32 @@ body {
 
 * {
   box-sizing: border-box;
+}
+
+/* ── Accessibility ─────────────────────────────────────────────────────────── */
+
+/* Custom focus ring — replaces browser default */
+:focus-visible {
+  outline: 2px solid var(--color-accent-pink);
+  outline-offset: 2px;
+}
+
+/* Skip navigation link */
+.skip-nav {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 10000;
+  padding: 8px 16px;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 0 0 6px 0;
+  text-decoration: none;
+}
+.skip-nav:focus {
+  left: 0;
 }
 
 .gradient-text {

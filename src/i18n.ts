@@ -63,6 +63,26 @@ export interface UIStrings {
   stageMergeSkillTrees: string;
   stageResearchSkills: string;
   stageGenerateRoadbook: string;
+
+  // Empty states
+  chatEmptyTitle: string;
+  chatEmptyHint: string;
+  chatSuggestion1: string;
+  chatSuggestion2: string;
+  chatSuggestion3: string;
+  insightsEmptyTitle: string;
+  insightsEmptyHint: string;
+  researchEmptyTitle: string;
+  researchEmptyHint: string;
+  skillRadarEmptyTitle: string;
+  skillRadarEmptyHint: string;
+  skillRadarEmptyAction: string;
+
+  // Onboarding
+  onboardingStep1: string;
+  onboardingStep2: string;
+  onboardingStep3: string;
+  onboardingTitle: string;
 }
 
 const strings: Record<string, UIStrings> = {
@@ -113,6 +133,22 @@ const strings: Record<string, UIStrings> = {
     stageMergeSkillTrees: "Merging skills",
     stageResearchSkills: "Researching resources",
     stageGenerateRoadbook: "Generating roadbook",
+    chatEmptyTitle: "Ask anything about your sources",
+    chatEmptyHint: "Ariadne can answer questions, explain concepts, or update your roadbook.",
+    chatSuggestion1: "What should I learn first?",
+    chatSuggestion2: "Explain the key concepts",
+    chatSuggestion3: "What are the prerequisites?",
+    insightsEmptyTitle: "Capture ideas as you explore",
+    insightsEmptyHint: "Save observations, questions, and aha moments here.",
+    researchEmptyTitle: "Deep-dive into topics",
+    researchEmptyHint: "Add research questions and Ariadne will investigate them for you.",
+    skillRadarEmptyTitle: "Your skill radar is empty",
+    skillRadarEmptyHint: "Generate roadbooks in your workspaces to see skills here.",
+    skillRadarEmptyAction: "Go to workspaces",
+    onboardingStep1: "Add a source",
+    onboardingStep2: "Generate a skill graph",
+    onboardingStep3: "Explore & learn",
+    onboardingTitle: "Get started in 3 steps",
   },
   "Chinese (Simplified)": {
     myJourneys: "我的旅程",
@@ -161,6 +197,22 @@ const strings: Record<string, UIStrings> = {
     stageMergeSkillTrees: "合并技能树",
     stageResearchSkills: "搜索资源",
     stageGenerateRoadbook: "生成路书",
+    chatEmptyTitle: "关于你的 Source，问我任何问题",
+    chatEmptyHint: "Ariadne 可以回答问题、解释概念或更新你的路书。",
+    chatSuggestion1: "我应该先学什么？",
+    chatSuggestion2: "解释核心概念",
+    chatSuggestion3: "有哪些前置知识？",
+    insightsEmptyTitle: "探索时记录灵感",
+    insightsEmptyHint: "保存你的观察、问题和顿悟时刻。",
+    researchEmptyTitle: "深入研究某个主题",
+    researchEmptyHint: "添加研究问题，Ariadne 会帮你调查。",
+    skillRadarEmptyTitle: "技能雷达暂无数据",
+    skillRadarEmptyHint: "在工作区生成路书后，技能将显示在这里。",
+    skillRadarEmptyAction: "前往工作区",
+    onboardingStep1: "添加一条 Source",
+    onboardingStep2: "生成技能图谱",
+    onboardingStep3: "探索与学习",
+    onboardingTitle: "三步开始",
   },
   "Japanese": {
     myJourneys: "マイジャーニー",
@@ -209,6 +261,22 @@ const strings: Record<string, UIStrings> = {
     stageMergeSkillTrees: "スキルを統合中",
     stageResearchSkills: "リソースを検索中",
     stageGenerateRoadbook: "ロードブックを生成中",
+    chatEmptyTitle: "ソースについて何でも聞いてください",
+    chatEmptyHint: "Ariadneが質問に答え、概念を説明し、ロードブックを更新します。",
+    chatSuggestion1: "最初に何を学ぶべき？",
+    chatSuggestion2: "キーコンセプトを説明して",
+    chatSuggestion3: "前提知識は何？",
+    insightsEmptyTitle: "探索しながらアイデアを記録",
+    insightsEmptyHint: "気づき、質問、ひらめきをここに保存しましょう。",
+    researchEmptyTitle: "トピックを深掘り",
+    researchEmptyHint: "調査したい質問を追加すると、Ariadneが調べます。",
+    skillRadarEmptyTitle: "スキルレーダーは空です",
+    skillRadarEmptyHint: "ワークスペースでロードブックを生成するとスキルが表示されます。",
+    skillRadarEmptyAction: "ワークスペースへ",
+    onboardingStep1: "ソースを追加",
+    onboardingStep2: "スキルグラフを生成",
+    onboardingStep3: "探索して学ぶ",
+    onboardingTitle: "3ステップで開始",
   },
   "Spanish": {
     myJourneys: "Mis Journeys",
@@ -257,6 +325,22 @@ const strings: Record<string, UIStrings> = {
     stageMergeSkillTrees: "Fusionando habilidades",
     stageResearchSkills: "Buscando recursos",
     stageGenerateRoadbook: "Generando roadbook",
+    chatEmptyTitle: "Pregunta lo que quieras sobre tus fuentes",
+    chatEmptyHint: "Ariadne puede responder preguntas, explicar conceptos o actualizar tu roadbook.",
+    chatSuggestion1: "¿Qué debería aprender primero?",
+    chatSuggestion2: "Explica los conceptos clave",
+    chatSuggestion3: "¿Cuáles son los requisitos previos?",
+    insightsEmptyTitle: "Captura ideas mientras exploras",
+    insightsEmptyHint: "Guarda observaciones, preguntas y momentos de inspiración.",
+    researchEmptyTitle: "Profundiza en un tema",
+    researchEmptyHint: "Agrega preguntas de investigación y Ariadne las investigará por ti.",
+    skillRadarEmptyTitle: "Tu radar de habilidades está vacío",
+    skillRadarEmptyHint: "Genera roadbooks en tus workspaces para ver habilidades aquí.",
+    skillRadarEmptyAction: "Ir a workspaces",
+    onboardingStep1: "Agrega una fuente",
+    onboardingStep2: "Genera un gráfico de habilidades",
+    onboardingStep3: "Explora y aprende",
+    onboardingTitle: "Comienza en 3 pasos",
   },
   "French": {
     myJourneys: "Mes Journeys",
@@ -305,6 +389,22 @@ const strings: Record<string, UIStrings> = {
     stageMergeSkillTrees: "Fusion des compétences",
     stageResearchSkills: "Recherche de ressources",
     stageGenerateRoadbook: "Génération du roadbook",
+    chatEmptyTitle: "Posez n'importe quelle question sur vos sources",
+    chatEmptyHint: "Ariadne peut répondre aux questions, expliquer des concepts ou mettre à jour votre roadbook.",
+    chatSuggestion1: "Par quoi commencer ?",
+    chatSuggestion2: "Explique les concepts clés",
+    chatSuggestion3: "Quels sont les prérequis ?",
+    insightsEmptyTitle: "Capturez vos idées en explorant",
+    insightsEmptyHint: "Sauvegardez observations, questions et moments de révélation.",
+    researchEmptyTitle: "Approfondissez un sujet",
+    researchEmptyHint: "Ajoutez des questions de recherche et Ariadne les explorera pour vous.",
+    skillRadarEmptyTitle: "Votre radar de compétences est vide",
+    skillRadarEmptyHint: "Générez des roadbooks dans vos workspaces pour voir les compétences ici.",
+    skillRadarEmptyAction: "Aller aux workspaces",
+    onboardingStep1: "Ajoutez une source",
+    onboardingStep2: "Générez un graphe de compétences",
+    onboardingStep3: "Explorez et apprenez",
+    onboardingTitle: "Commencez en 3 étapes",
   },
 };
 

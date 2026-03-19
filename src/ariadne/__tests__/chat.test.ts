@@ -221,4 +221,55 @@ describe("chatStream", () => {
       }
     }).rejects.toThrow("model unavailable");
   });
+
+  it("yields empty string for non-string chunk content", async () => {
+    async function* nonStringStream() {
+      yield { content: ["array", "content"] };
+      yield { content: "normal" };
+    }
+    mockStream.mockResolvedValue(nonStringStream());
+
+    const chunks: string[] = [];
+    for await (const chunk of chatStream({ ...baseOpts })) {
+      chunks.push(chunk);
+    }
+    // Non-string content yields "", which is falsy and skipped by chatStream
+    expect(chunks).toEqual(["normal"]);
+  });
+});
+
+describe("buildContext budget — source roadmaps exhaust budget", () => {
+  it("skips insights when budget is exhausted by source roadmaps", () => {
+    const bigRoadmap = "R".repeat(6_000);
+    const msgs = buildChatMessages({
+      ...baseOpts,
+      sources: Array.from({ length: 10 }, (_, i) => ({
+        reference: `src-${i}`,
+        snapshot: "",
+        roadmapMarkdown: bigRoadmap,
+      })),
+      insights: ["This insight should be skipped"],
+    });
+    const system = msgs.find((m) => m._getType() === "system");
+    const content = system?.content as string;
+    // Budget should be exhausted by source roadmaps, insights skipped
+    expect(content).not.toContain("Insights");
+  });
+
+  it("breaks out of source roadmap loop when remaining < 200", () => {
+    const bigRoadmap = "R".repeat(6_000);
+    const msgs = buildChatMessages({
+      ...baseOpts,
+      sources: Array.from({ length: 12 }, (_, i) => ({
+        reference: `src-${i}`,
+        snapshot: "",
+        roadmapMarkdown: bigRoadmap,
+      })),
+    });
+    const system = msgs.find((m) => m._getType() === "system");
+    const content = system?.content as string;
+    // Not all 12 source roadmaps should fit — some should be cut
+    const roadmapCount = (content.match(/## Roadmap: src-/g) ?? []).length;
+    expect(roadmapCount).toBeLessThan(12);
+  });
 });

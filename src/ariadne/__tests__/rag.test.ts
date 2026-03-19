@@ -209,6 +209,42 @@ describe("getStoreStats", () => {
 
 // ── retrieve edge cases ────────────────────────────────────────────────────
 
+describe("splitText edge cases", () => {
+  it("filters out empty chunks after trim", () => {
+    // Text with pure whitespace paragraphs
+    const text = "Content A\n\n   \n\n   \n\nContent B";
+    const chunks = splitText(text);
+    for (const chunk of chunks) {
+      expect(chunk.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it("recursively splits when buffer exceeds CHUNK_SIZE with next separator", () => {
+    // Create text with ## sections where each section > 800 chars
+    const longParagraph = "Word ".repeat(200); // ~1000 chars
+    const text = `## Section A\n${longParagraph}\n\n## Section B\n${longParagraph}\n\n## Section C\n${longParagraph}`;
+    const chunks = splitText(text);
+    expect(chunks.length).toBeGreaterThan(1);
+    // Each chunk should be within size limit
+    for (const chunk of chunks) {
+      expect(chunk.length).toBeLessThanOrEqual(850);
+    }
+  });
+});
+
+describe("cosine similarity edge cases", () => {
+  it("returns 0 for zero vectors", async () => {
+    // Mock embeddings to return zero vectors
+    mockEmbedDocuments.mockResolvedValue([[0, 0, 0]]);
+    mockEmbedQuery.mockResolvedValue([0, 0, 0]);
+
+    await ingestSource("test-ws", "zero-doc", "content");
+    const results = await retrieve("test-ws", "query", 1);
+    // Should not crash; zero vector gives cosine similarity = 0
+    expect(results).toHaveLength(1);
+  });
+});
+
 describe("retrieve edge cases", () => {
   it("handles empty query string", async () => {
     mockEmbedDocuments.mockResolvedValue([[1, 0, 0]]);

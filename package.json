@@ -19,6 +19,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:eval": "vitest run --config vitest.eval.config.ts",
+    "test:eval-unit": "vitest run src/ariadne/__tests__/eval/evaluators/",
     "eval:langsmith": "tsx src/ariadne/__tests__/eval/langsmith-eval.ts",
     "eval:langsmith:ci": "tsx src/ariadne/__tests__/eval/langsmith-eval.ts --ci"
   },

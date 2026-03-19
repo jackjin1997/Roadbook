@@ -143,6 +143,19 @@ describe("journeyGraph", () => {
     expect(mockInvoke).toHaveBeenCalledTimes(3);
   });
 
+  it("works without onProgress callback", async () => {
+    const { journeyGraph } = await import("../graph.js");
+
+    const result = await journeyGraph.invoke({
+      snapshots: [{ text: "Test", language: "English" }],
+      language: "English",
+      // no onProgress
+    });
+
+    expect(result.roadbookMarkdown).toContain("React");
+    expect(result.skillTree).toHaveLength(2);
+  });
+
   it("reports progress for all journey stages", async () => {
     const { journeyGraph } = await import("../graph.js");
     const onProgress = vi.fn();

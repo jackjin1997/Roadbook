@@ -12,12 +12,13 @@ export default defineConfig({
         "src/ariadne/__tests__/**",
         "src/ariadne/cli.ts",
         "src/ariadne/server.ts", // covered by server.test.ts integration tests
+        "src/ariadne/content-extractor.ts", // extracted from server.ts, tested via server.test.ts
       ],
       reporter: ["text", "lcov", "html"],
       thresholds: {
-        lines: 70,
-        functions: 70,
-        branches: 60,
+        lines: 95,
+        functions: 90,
+        branches: 85,
       },
     },
   },

@@ -31,6 +31,20 @@ afterEach(() => {
 });
 
 describe("isTracingEnabled", () => {
+  it("returns false when process.env access throws", () => {
+    const original = process.env;
+    Object.defineProperty(process, "env", {
+      get: () => { throw new Error("no env"); },
+      configurable: true,
+    });
+    expect(isTracingEnabled()).toBe(false);
+    Object.defineProperty(process, "env", {
+      value: original,
+      configurable: true,
+      writable: true,
+    });
+  });
+
   it("returns false when no env vars set", () => {
     expect(isTracingEnabled()).toBe(false);
   });

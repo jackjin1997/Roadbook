@@ -24,6 +24,10 @@ interface BuildOptions {
 }
 
 const BUDGET = 60_000;
+const JOURNEY_ROADMAP_BUDGET = 8_000;
+const SOURCE_ROADMAP_BUDGET = 6_000;
+const INSIGHTS_BUDGET = 2_000;
+const MIN_REMAINING = 200;
 
 /**
  * Progressively fill the system context up to BUDGET chars.
@@ -38,22 +42,22 @@ function buildContext(
 
   // P1: journey roadmap
   if (journeyRoadmap) {
-    ctx += `## Journey Roadmap\n${journeyRoadmap.slice(0, 8_000)}\n\n`;
+    ctx += `## Journey Roadmap\n${journeyRoadmap.slice(0, JOURNEY_ROADMAP_BUDGET)}\n\n`;
   }
 
   // P2: source roadmaps
   for (const s of sources) {
     if (!s.roadmapMarkdown) continue;
     const remaining = BUDGET - ctx.length;
-    if (remaining < 200) break;
-    ctx += `## Roadmap: ${s.reference}\n${s.roadmapMarkdown.slice(0, Math.min(6_000, remaining))}\n\n`;
+    if (remaining < MIN_REMAINING) break;
+    ctx += `## Roadmap: ${s.reference}\n${s.roadmapMarkdown.slice(0, Math.min(SOURCE_ROADMAP_BUDGET, remaining))}\n\n`;
   }
 
   // P3: insights
   if (insights.length > 0) {
     const insightsBlock = `## Insights\n${insights.map((ins) => `- ${ins}`).join("\n")}`;
     const remaining = BUDGET - ctx.length;
-    if (remaining > 200) ctx += insightsBlock.slice(0, Math.min(2_000, remaining)) + "\n\n";
+    if (remaining > MIN_REMAINING) ctx += insightsBlock.slice(0, Math.min(INSIGHTS_BUDGET, remaining)) + "\n\n";
   }
 
   // P4: source snapshots (split remaining budget evenly)
@@ -61,7 +65,7 @@ function buildContext(
   const perSource = Math.floor((BUDGET - ctx.length) / Math.max(snapSources.length, 1));
   for (const s of snapSources) {
     const remaining = BUDGET - ctx.length;
-    if (remaining < 200) {
+    if (remaining < MIN_REMAINING) {
       ctx += `[Source: ${s.reference} — content exceeds context limit]\n\n`;
       continue;
     }

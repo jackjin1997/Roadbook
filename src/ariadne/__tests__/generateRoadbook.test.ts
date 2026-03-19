@@ -148,6 +148,30 @@ describe("generateRoadbookMarkdown", () => {
     expect(result.roadbookMarkdown).toContain("基础设施");
   });
 
+  it("falls back to English labels for unsupported language", () => {
+    const result = generateRoadbookMarkdown({
+      title: "German Test",
+      skillTree: mockSkills,
+      researchResults: mockResearch,
+      language: "German",
+    });
+    // Should use DEFAULT_LABELS (English)
+    expect(result.roadbookMarkdown).toContain("High Priority");
+    expect(result.roadbookMarkdown).toContain("Medium Priority");
+    expect(result.roadbookMarkdown).toContain("Low Priority");
+    expect(result.roadbookMarkdown).toContain("Recommended Resources");
+  });
+
+  it("omits resource section when skill has empty resources array", () => {
+    const result = generateRoadbookMarkdown({
+      title: "Empty Resources Test",
+      skillTree: [mockSkills[0]!],
+      researchResults: [{ skillName: "LangGraph.js", resources: [] }],
+      language: "Chinese (Simplified)",
+    });
+    expect(result.roadbookMarkdown).not.toContain("推荐资源");
+  });
+
   it("handles empty skill tree gracefully", () => {
     const result = generateRoadbookMarkdown({
       title: "空技能树",

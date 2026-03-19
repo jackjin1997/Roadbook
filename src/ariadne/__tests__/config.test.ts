@@ -125,3 +125,25 @@ describe("inferProvider", () => {
     expect(inferProvider("some-custom-model")).toBe("openai");
   });
 });
+
+describe("getModel — env-driven config", () => {
+  it("passes GOOGLE_API_KEY to Gemini provider", () => {
+    vi.stubEnv("GOOGLE_API_KEY", "test-google-key");
+    setModelConfig({ provider: "gemini", modelName: "gemini-2.5-flash" });
+    getModel();
+    expect(ChatGoogleGenerativeAI).toHaveBeenCalledWith(
+      expect.objectContaining({ apiKey: "test-google-key" }),
+    );
+    vi.unstubAllEnvs();
+  });
+
+  it("passes ANTHROPIC_BASE_URL to Anthropic provider", () => {
+    vi.stubEnv("ANTHROPIC_BASE_URL", "https://custom.api.example.com");
+    setModelConfig({ provider: "anthropic", modelName: "claude-sonnet-4-6" });
+    getModel();
+    expect(ChatAnthropic).toHaveBeenCalledWith(
+      expect.objectContaining({ anthropicApiUrl: "https://custom.api.example.com" }),
+    );
+    vi.unstubAllEnvs();
+  });
+});
