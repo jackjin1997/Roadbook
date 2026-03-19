@@ -1,11 +1,11 @@
 <p align="center">
   <code><b>R O A D B O O K</b></code>
   <br>
-  <i>路书 — AI-powered skill roadmap generator</i>
+  <i>Your living skill map — it knows what you've learned, what you're forgetting, and how far you are from your next goal.</i>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.9-black?style=flat-square" />
+  <img src="https://img.shields.io/badge/version-1.0-black?style=flat-square" />
   <img src="https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react" />
   <img src="https://img.shields.io/badge/D3.js-v7-f9a03c?style=flat-square&logo=d3dotjs" />
   <img src="https://img.shields.io/badge/LangGraph-js-1a1a1a?style=flat-square" />
@@ -14,16 +14,57 @@
 
 ---
 
-Paste a job description, resume, or any technical concept. **Ariadne** extracts a skill tree, researches every node online, and generates an interactive radial skill graph + structured Markdown roadmap.
+ChatGPT can give you a learning roadmap. **Roadbook gives you a living skill graph** — it remembers your progress, visualizes what you're forgetting, and shows exactly how far you are from your next goal.
 
 ```
-JD / article / PDF  ──>  Ariadne Engine  ──>  Radial Skill Graph + Markdown Roadbook
-                          │
-                          ├─ ParseInput
-                          ├─ ExtractSkillTree
-                          ├─ ResearchNode (Tavily)
-                          └─ GenerateRoadbook
+                    ┌──────────────────────────────────────────┐
+                    │              Frontend                     │
+                    │                                          │
+                    │  ┌────────────┐  ┌────────────────────┐  │
+                    │  │ SkillMap   │  │ Workspace          │  │
+   User ──────────▶│  │ (Home)     │  │ (Source+Graph+Chat) │  │
+                    │  │            │  │                    │  │
+                    │  │ Global D3  │  │ Per-source D3      │  │
+                    │  │ radial     │  │ radial + prose     │  │
+                    │  └──────┬─────┘  └────────┬───────────┘  │
+                    │         │                 │              │
+                    │  ┌──────▼─────┐  ┌────────▼───────────┐  │
+                    │  │ JD Match   │  │ Share Card         │  │
+                    │  │ Report     │  │ Generator          │  │
+                    │  └──────┬─────┘  └────────┬───────────┘  │
+                    └─────────┼─────────────────┼──────────────┘
+                              │                 │
+                    ┌─────────▼─────────────────▼──────────────┐
+                    │              Backend (Ariadne)            │
+                    │                                          │
+                    │  GET /skill-index ─── global skill map   │
+                    │  POST /skill-match ── JD comparison      │
+                    │  GET /skill-events ── timeline data      │
+                    │  POST /generate ───── roadbook gen       │
+                    │  POST /chat/stream ── RAG chat           │
+                    │                                          │
+                    │  ┌──────────────────────────────────────┐│
+                    │  │ SQLite (WAL)                         ││
+                    │  │  workspaces · skill_events            ││
+                    │  └──────────────────────────────────────┘│
+                    └──────────────────────────────────────────┘
 ```
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| **Living Skill Graph** | Global D3 radial force graph — your entire skill map on the home page |
+| **Skill Decay** | Skills fade over time based on `lastActiveAt` — see what you're forgetting |
+| **JD Match** | Paste a job description, get a match score with mastered/learning/missing breakdown |
+| **Skill Timeline** | Activity feed showing every skill status change across all workspaces |
+| **Share Card** | Radar chart skill card with PNG export — your tech fingerprint |
+| **Multi-source Journey** | Upload JDs, articles, PDFs — Ariadne merges them into one unified skill roadmap |
+| **RAG Chat** | Vector-store retrieval-augmented Q&A, responds in your language (zh/en/ja/es/fr) |
+| **Research Todo** | AI auto-researches topics online, generates research sources |
+| **Graph / Prose** | Toggle between radial force graph and Markdown rendering |
+| **Obsidian Export** | One-click `.zip` vault with `[[wikilinks]]` between skill nodes |
+| **LangSmith Tracing** | Full observability on every generation step |
 
 ## Radial Skill Graph
 
@@ -42,24 +83,10 @@ Inspired by [MiroFish](https://github.com/666ghj/MiroFish)'s Graph Relationship 
 ```
 
 - **Radial force layout** — `d3.forceRadial` places High/Medium/Low skills on concentric rings
-- **Expandable sub-skills** — click a node to reveal satellite sub-skill nodes (dashed lines)
-- **Priority = weight** — node size, label weight, charge strength, edge width all scale with priority
-- **Smooth transitions** — 250ms eased transitions on hover focus, click highlight, expand/collapse
-- **MiroFish interactions** — pink `#E91E63` selection highlight, connected-node focus, floating detail panel
+- **Skill Decay** — node opacity fades from 1.0 to 0.3 over 90 days of inactivity
+- **Expandable sub-skills** — click a node to reveal satellite sub-skill nodes
 - **Status tracking** — double-click to cycle Not Started → Learning → Mastered
-
-## Features
-
-| Feature | Description |
-|---------|-------------|
-| **Multi-source Journey** | Upload JDs, articles, PDFs — Ariadne merges them into one unified skill roadmap |
-| **Incremental Digest** | Selectively digest source sections into the Journey roadmap |
-| **RAG Chat** | Vector-store retrieval-augmented Q&A, responds in your language (zh/en/ja/es/fr) |
-| **Research Todo** | AI auto-researches topics online, generates research sources |
-| **Graph / Prose** | Toggle between radial force graph and Markdown rendering |
-| **Obsidian Export** | One-click `.zip` vault with `[[wikilinks]]` between skill nodes |
-| **Skill Radar** | Cross-workspace global skill index with mastery progress |
-| **LangSmith Tracing** | Full observability on every generation step |
+- **MiroFish interactions** — pink `#E91E63` selection highlight, connected-node focus
 
 ## Quick Start
 
@@ -105,7 +132,7 @@ Observability LangSmith (tracing + evaluation)
 UI inspired by [MiroFish](https://github.com/666ghj/MiroFish):
 
 - Monochrome palette (`#FAFAFA` / `#1a1a1a`) + dot grid background
-- `ROADBOOK` monospace branding
+- `ROADBOOK` monospace branding (JetBrains Mono)
 - Pink `#E91E63` accent on interactions
 - Frosted glass floating toolbars
 - 10-color category palette
@@ -114,7 +141,8 @@ UI inspired by [MiroFish](https://github.com/666ghj/MiroFish):
 
 | Version | Date | Highlights |
 |---------|------|------------|
-| **v0.9** | 2026-03-15 | Radial skill graph, MiroFish UI overhaul, sub-skill expand/collapse, multilingual chat, SSE hardening |
+| **v1.0** | 2026-03-19 | Living Skill Graph: global skill map home page, skill decay, JD match, skill timeline, share card with radar chart + PNG export |
+| v0.9 | 2026-03-15 | Radial skill graph, MiroFish UI overhaul, sub-skill expand/collapse, multilingual chat, SSE hardening |
 | v0.8 | 2026-03-12 | SQLite data layer (WAL + auto migration) |
 | v0.7 | 2026-03-10 | RAG chat retrieval + GitHub Actions CI |
 | v0.6 | 2026-03-08 | D3 force graph + Skill Radar + Obsidian export + progress tracking |

@@ -121,6 +121,13 @@ export default function Home() {
             {i.timelineNav}
           </button>
           <button
+            onClick={() => navigate("/share")}
+            className="text-xs px-3 py-1.5 rounded-lg transition-colors"
+            style={{ border: "1px solid var(--color-border)", color: "var(--color-text-muted)", background: "var(--color-surface)" }}
+          >
+            {i.shareCardNav}
+          </button>
+          <button
             onClick={() => navigate("/workspaces")}
             className="text-xs px-3 py-1.5 rounded-lg transition-colors"
             style={{ border: "1px solid var(--color-border)", color: "var(--color-text-muted)", background: "var(--color-surface)" }}

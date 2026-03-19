@@ -102,6 +102,21 @@ export interface UIStrings {
   timelineFilterPlaceholder: string;
   timelineEmpty: string;
   timelineNoResults: string;
+
+  // Share Card
+  shareCardNav: string;
+  shareCardTitle: string;
+  shareCardDownload: string;
+  shareCardCopyLink: string;
+  shareCardLinkCopied: string;
+  shareCardLinkCopyFailed: string;
+  shareCardFallbackSvg: string;
+  shareCardMastered: string;
+  shareCardLearning: string;
+  shareCardPlanned: string;
+  shareCardTotalSkills: string;
+  shareCardEmptyTitle: string;
+  shareCardEmptyHint: string;
 }
 
 const strings: Record<string, UIStrings> = {
@@ -183,6 +198,19 @@ const strings: Record<string, UIStrings> = {
     timelineFilterPlaceholder: "Filter by skill name...",
     timelineEmpty: "No skill events yet. Update skill progress in your workspaces to see events here.",
     timelineNoResults: "No events match your filter.",
+    shareCardNav: "Share",
+    shareCardTitle: "Skill Radar",
+    shareCardDownload: "Download PNG",
+    shareCardCopyLink: "Copy Link",
+    shareCardLinkCopied: "Link copied to clipboard",
+    shareCardLinkCopyFailed: "Failed to copy link",
+    shareCardFallbackSvg: "PNG export unavailable, downloaded as SVG",
+    shareCardMastered: "skills mastered",
+    shareCardLearning: "skills learning",
+    shareCardPlanned: "skills planned",
+    shareCardTotalSkills: "total skills",
+    shareCardEmptyTitle: "No skills to display",
+    shareCardEmptyHint: "Generate roadbooks in your workspaces to build your skill radar.",
   },
   "Chinese (Simplified)": {
     myJourneys: "我的旅程",
@@ -262,6 +290,19 @@ const strings: Record<string, UIStrings> = {
     timelineFilterPlaceholder: "按技能名称筛选...",
     timelineEmpty: "暂无技能事件。在工作区更新技能进度后，事件将显示在这里。",
     timelineNoResults: "没有匹配的事件。",
+    shareCardNav: "分享",
+    shareCardTitle: "技能雷达",
+    shareCardDownload: "下载 PNG",
+    shareCardCopyLink: "复制链接",
+    shareCardLinkCopied: "链接已复制到剪贴板",
+    shareCardLinkCopyFailed: "复制链接失败",
+    shareCardFallbackSvg: "PNG 导出不可用，已下载为 SVG",
+    shareCardMastered: "项已掌握",
+    shareCardLearning: "项学习中",
+    shareCardPlanned: "项计划中",
+    shareCardTotalSkills: "总技能数",
+    shareCardEmptyTitle: "暂无技能数据",
+    shareCardEmptyHint: "在工作区生成路书后，技能雷达将显示在这里。",
   },
   "Japanese": {
     myJourneys: "マイジャーニー",
@@ -341,6 +382,19 @@ const strings: Record<string, UIStrings> = {
     timelineFilterPlaceholder: "スキル名でフィルター...",
     timelineEmpty: "スキルイベントはまだありません。ワークスペースでスキル進捗を更新すると、ここに表示されます。",
     timelineNoResults: "フィルターに一致するイベントはありません。",
+    shareCardNav: "シェア",
+    shareCardTitle: "スキルレーダー",
+    shareCardDownload: "PNGをダウンロード",
+    shareCardCopyLink: "リンクをコピー",
+    shareCardLinkCopied: "リンクをクリップボードにコピーしました",
+    shareCardLinkCopyFailed: "リンクのコピーに失敗しました",
+    shareCardFallbackSvg: "PNG出力不可、SVGとしてダウンロードしました",
+    shareCardMastered: "スキル習得済み",
+    shareCardLearning: "スキル学習中",
+    shareCardPlanned: "スキル計画中",
+    shareCardTotalSkills: "合計スキル",
+    shareCardEmptyTitle: "表示するスキルがありません",
+    shareCardEmptyHint: "ワークスペースでロードブックを生成してスキルレーダーを構築しましょう。",
   },
   "Spanish": {
     myJourneys: "Mis Journeys",
@@ -420,6 +474,19 @@ const strings: Record<string, UIStrings> = {
     timelineFilterPlaceholder: "Filtrar por nombre de habilidad...",
     timelineEmpty: "No hay eventos de habilidades aún. Actualiza el progreso en tus workspaces para ver eventos aquí.",
     timelineNoResults: "No hay eventos que coincidan con tu filtro.",
+    shareCardNav: "Compartir",
+    shareCardTitle: "Radar de habilidades",
+    shareCardDownload: "Descargar PNG",
+    shareCardCopyLink: "Copiar enlace",
+    shareCardLinkCopied: "Enlace copiado al portapapeles",
+    shareCardLinkCopyFailed: "Error al copiar el enlace",
+    shareCardFallbackSvg: "Exportación PNG no disponible, descargado como SVG",
+    shareCardMastered: "habilidades dominadas",
+    shareCardLearning: "habilidades aprendiendo",
+    shareCardPlanned: "habilidades planeadas",
+    shareCardTotalSkills: "habilidades totales",
+    shareCardEmptyTitle: "Sin habilidades para mostrar",
+    shareCardEmptyHint: "Genera roadbooks en tus workspaces para construir tu radar de habilidades.",
   },
   "French": {
     myJourneys: "Mes Journeys",
@@ -499,6 +566,19 @@ const strings: Record<string, UIStrings> = {
     timelineFilterPlaceholder: "Filtrer par nom de compétence...",
     timelineEmpty: "Aucun événement de compétence. Mettez à jour la progression dans vos workspaces pour voir les événements ici.",
     timelineNoResults: "Aucun événement ne correspond à votre filtre.",
+    shareCardNav: "Partager",
+    shareCardTitle: "Radar de competences",
+    shareCardDownload: "Telecharger PNG",
+    shareCardCopyLink: "Copier le lien",
+    shareCardLinkCopied: "Lien copie dans le presse-papiers",
+    shareCardLinkCopyFailed: "Echec de la copie du lien",
+    shareCardFallbackSvg: "Export PNG indisponible, telecharge en SVG",
+    shareCardMastered: "competences maitrisees",
+    shareCardLearning: "competences en cours",
+    shareCardPlanned: "competences planifiees",
+    shareCardTotalSkills: "competences totales",
+    shareCardEmptyTitle: "Aucune competence a afficher",
+    shareCardEmptyHint: "Generez des roadbooks dans vos workspaces pour construire votre radar de competences.",
   },
 };
 
