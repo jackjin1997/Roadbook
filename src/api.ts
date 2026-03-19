@@ -285,6 +285,25 @@ export const getSkillEvents = (filters?: { limit?: number; skillName?: string; w
   return req<{ events: SkillEventResponse[] }>(`/skill-events${qs ? `?${qs}` : ""}`);
 };
 
+// Skill match
+export interface MatchedSkill {
+  skill: string;
+  priority: "high" | "medium" | "low";
+}
+
+export interface SkillMatchResult {
+  matched: MatchedSkill[];
+  learning: MatchedSkill[];
+  missing: MatchedSkill[];
+  score: number;
+}
+
+export const postSkillMatch = (text: string) =>
+  req<SkillMatchResult>("/skill-match", {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
+
 // Skill progress
 export const updateSkillProgress = (
   workspaceId: string,

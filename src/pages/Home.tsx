@@ -107,6 +107,20 @@ export default function Home() {
         <span className="text-base font-bold gradient-text" style={{ fontFamily: "'JetBrains Mono', 'SF Mono', monospace", letterSpacing: "0.12em" }}>ROADBOOK</span>
         <div className="ml-auto flex items-center gap-3">
           <button
+            onClick={() => navigate("/match")}
+            className="text-xs px-3 py-1.5 rounded-lg transition-colors"
+            style={{ border: "1px solid var(--color-border)", color: "var(--color-text-muted)", background: "var(--color-surface)" }}
+          >
+            {i.jdMatchNav}
+          </button>
+          <button
+            onClick={() => navigate("/timeline")}
+            className="text-xs px-3 py-1.5 rounded-lg transition-colors"
+            style={{ border: "1px solid var(--color-border)", color: "var(--color-text-muted)", background: "var(--color-surface)" }}
+          >
+            {i.timelineNav}
+          </button>
+          <button
             onClick={() => navigate("/workspaces")}
             className="text-xs px-3 py-1.5 rounded-lg transition-colors"
             style={{ border: "1px solid var(--color-border)", color: "var(--color-text-muted)", background: "var(--color-surface)" }}

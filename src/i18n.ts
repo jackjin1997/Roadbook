@@ -83,6 +83,25 @@ export interface UIStrings {
   onboardingStep2: string;
   onboardingStep3: string;
   onboardingTitle: string;
+
+  // JD Match
+  jdMatchNav: string;
+  jdMatchTitle: string;
+  jdMatchInputLabel: string;
+  jdMatchPlaceholder: string;
+  jdMatchButton: string;
+  jdMatchAnalyzing: string;
+  jdMatchScoreLabel: string;
+  jdMatchMastered: string;
+  jdMatchLearning: string;
+  jdMatchMissing: string;
+
+  // Timeline
+  timelineNav: string;
+  timelineTitle: string;
+  timelineFilterPlaceholder: string;
+  timelineEmpty: string;
+  timelineNoResults: string;
 }
 
 const strings: Record<string, UIStrings> = {
@@ -149,6 +168,21 @@ const strings: Record<string, UIStrings> = {
     onboardingStep2: "Generate a skill graph",
     onboardingStep3: "Explore & learn",
     onboardingTitle: "Get started in 3 steps",
+    jdMatchNav: "JD Match",
+    jdMatchTitle: "JD Match",
+    jdMatchInputLabel: "Paste a job description",
+    jdMatchPlaceholder: "Paste the full job description here...",
+    jdMatchButton: "Match Skills",
+    jdMatchAnalyzing: "Analyzing...",
+    jdMatchScoreLabel: "Match Score",
+    jdMatchMastered: "Mastered",
+    jdMatchLearning: "Learning",
+    jdMatchMissing: "Missing",
+    timelineNav: "Timeline",
+    timelineTitle: "Skill Timeline",
+    timelineFilterPlaceholder: "Filter by skill name...",
+    timelineEmpty: "No skill events yet. Update skill progress in your workspaces to see events here.",
+    timelineNoResults: "No events match your filter.",
   },
   "Chinese (Simplified)": {
     myJourneys: "我的旅程",
@@ -213,6 +247,21 @@ const strings: Record<string, UIStrings> = {
     onboardingStep2: "生成技能图谱",
     onboardingStep3: "探索与学习",
     onboardingTitle: "三步开始",
+    jdMatchNav: "JD 匹配",
+    jdMatchTitle: "JD 匹配",
+    jdMatchInputLabel: "粘贴职位描述",
+    jdMatchPlaceholder: "在此粘贴完整的职位描述...",
+    jdMatchButton: "匹配技能",
+    jdMatchAnalyzing: "分析中...",
+    jdMatchScoreLabel: "匹配分数",
+    jdMatchMastered: "已掌握",
+    jdMatchLearning: "学习中",
+    jdMatchMissing: "待学习",
+    timelineNav: "时间线",
+    timelineTitle: "技能时间线",
+    timelineFilterPlaceholder: "按技能名称筛选...",
+    timelineEmpty: "暂无技能事件。在工作区更新技能进度后，事件将显示在这里。",
+    timelineNoResults: "没有匹配的事件。",
   },
   "Japanese": {
     myJourneys: "マイジャーニー",
@@ -277,6 +326,21 @@ const strings: Record<string, UIStrings> = {
     onboardingStep2: "スキルグラフを生成",
     onboardingStep3: "探索して学ぶ",
     onboardingTitle: "3ステップで開始",
+    jdMatchNav: "JDマッチ",
+    jdMatchTitle: "JDマッチ",
+    jdMatchInputLabel: "求人票を貼り付け",
+    jdMatchPlaceholder: "求人票の全文をここに貼り付けてください...",
+    jdMatchButton: "スキルをマッチ",
+    jdMatchAnalyzing: "分析中...",
+    jdMatchScoreLabel: "マッチスコア",
+    jdMatchMastered: "習得済み",
+    jdMatchLearning: "学習中",
+    jdMatchMissing: "未学習",
+    timelineNav: "タイムライン",
+    timelineTitle: "スキルタイムライン",
+    timelineFilterPlaceholder: "スキル名でフィルター...",
+    timelineEmpty: "スキルイベントはまだありません。ワークスペースでスキル進捗を更新すると、ここに表示されます。",
+    timelineNoResults: "フィルターに一致するイベントはありません。",
   },
   "Spanish": {
     myJourneys: "Mis Journeys",
@@ -341,6 +405,21 @@ const strings: Record<string, UIStrings> = {
     onboardingStep2: "Genera un gráfico de habilidades",
     onboardingStep3: "Explora y aprende",
     onboardingTitle: "Comienza en 3 pasos",
+    jdMatchNav: "JD Match",
+    jdMatchTitle: "JD Match",
+    jdMatchInputLabel: "Pega una descripción de puesto",
+    jdMatchPlaceholder: "Pega la descripción completa del puesto aquí...",
+    jdMatchButton: "Comparar habilidades",
+    jdMatchAnalyzing: "Analizando...",
+    jdMatchScoreLabel: "Puntuación",
+    jdMatchMastered: "Dominado",
+    jdMatchLearning: "Aprendiendo",
+    jdMatchMissing: "Faltante",
+    timelineNav: "Cronología",
+    timelineTitle: "Cronología de habilidades",
+    timelineFilterPlaceholder: "Filtrar por nombre de habilidad...",
+    timelineEmpty: "No hay eventos de habilidades aún. Actualiza el progreso en tus workspaces para ver eventos aquí.",
+    timelineNoResults: "No hay eventos que coincidan con tu filtro.",
   },
   "French": {
     myJourneys: "Mes Journeys",
@@ -405,6 +484,21 @@ const strings: Record<string, UIStrings> = {
     onboardingStep2: "Générez un graphe de compétences",
     onboardingStep3: "Explorez et apprenez",
     onboardingTitle: "Commencez en 3 étapes",
+    jdMatchNav: "JD Match",
+    jdMatchTitle: "JD Match",
+    jdMatchInputLabel: "Collez une description de poste",
+    jdMatchPlaceholder: "Collez la description complète du poste ici...",
+    jdMatchButton: "Comparer les compétences",
+    jdMatchAnalyzing: "Analyse en cours...",
+    jdMatchScoreLabel: "Score de correspondance",
+    jdMatchMastered: "Maîtrisé",
+    jdMatchLearning: "En cours",
+    jdMatchMissing: "Manquant",
+    timelineNav: "Chronologie",
+    timelineTitle: "Chronologie des compétences",
+    timelineFilterPlaceholder: "Filtrer par nom de compétence...",
+    timelineEmpty: "Aucun événement de compétence. Mettez à jour la progression dans vos workspaces pour voir les événements ici.",
+    timelineNoResults: "Aucun événement ne correspond à votre filtre.",
   },
 };
 
