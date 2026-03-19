@@ -45,6 +45,22 @@ export interface ResearchTodo {
 
 export type SkillStatus = "not_started" | "learning" | "mastered";
 
+export interface SkillProgressEntry {
+  status: SkillStatus;
+  lastActiveAt: number;
+  firstSeenAt: number;
+}
+
+export interface SkillEvent {
+  id: string;
+  skillName: string;
+  fromStatus: SkillStatus | null;
+  toStatus: SkillStatus;
+  source: "manual" | "generation" | "chat";
+  timestamp: number;
+  workspaceId?: string;
+}
+
 export interface Workspace {
   id: string;
   title: string;
@@ -54,7 +70,14 @@ export interface Workspace {
   sources: Source[];
   insights: Insight[];
   researchTodos: ResearchTodo[];
-  skillProgress: Record<string, SkillStatus>;
+  skillProgress: Record<string, SkillStatus | SkillProgressEntry>;
+}
+
+/** Resolve a skillProgress value (old string format or new SkillProgressEntry) to SkillStatus. */
+export function resolveSkillStatus(entry: SkillStatus | SkillProgressEntry | undefined): SkillStatus {
+  if (!entry) return "not_started";
+  if (typeof entry === "string") return entry;
+  return entry.status;
 }
 
 export interface WorkspaceListItem {

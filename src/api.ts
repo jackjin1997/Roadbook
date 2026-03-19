@@ -259,10 +259,31 @@ export interface SkillIndexEntry {
   priority: string;
   workspaces: { id: string; title: string }[];
   status: import("./types").SkillStatus;
+  lastActiveAt: number | null;
 }
 
 export const getSkillIndex = () =>
   req<{ skills: SkillIndexEntry[] }>("/skill-index");
+
+// Skill events
+export interface SkillEventResponse {
+  id: string;
+  skillName: string;
+  fromStatus: import("./types").SkillStatus | null;
+  toStatus: import("./types").SkillStatus;
+  source: "manual" | "generation" | "chat";
+  timestamp: number;
+  workspaceId?: string;
+}
+
+export const getSkillEvents = (filters?: { limit?: number; skillName?: string; workspaceId?: string }) => {
+  const params = new URLSearchParams();
+  if (filters?.limit) params.set("limit", String(filters.limit));
+  if (filters?.skillName) params.set("skillName", filters.skillName);
+  if (filters?.workspaceId) params.set("workspaceId", filters.workspaceId);
+  const qs = params.toString();
+  return req<{ events: SkillEventResponse[] }>(`/skill-events${qs ? `?${qs}` : ""}`);
+};
 
 // Skill progress
 export const updateSkillProgress = (
@@ -270,7 +291,7 @@ export const updateSkillProgress = (
   skillName: string,
   status: import("./types").SkillStatus,
 ) =>
-  req<{ skillProgress: Record<string, import("./types").SkillStatus> }>(
+  req<{ skillProgress: Record<string, import("./types").SkillStatus | import("./types").SkillProgressEntry> }>(
     `/workspaces/${workspaceId}/skill-progress`,
     { method: "PATCH", body: JSON.stringify({ skillName, status }) },
   );

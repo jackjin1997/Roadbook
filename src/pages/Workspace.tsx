@@ -25,6 +25,7 @@ import {
 } from "../api";
 import type { ChatMessage, GenerationProgress } from "../api";
 import type { Workspace, Source, Insight, ResearchTodo } from "../types";
+import { resolveSkillStatus } from "../types";
 import JSZip from "jszip";
 import ResizeHandle from "../components/ResizeHandle";
 import ConfirmDialog from "../components/ConfirmDialog";
@@ -481,6 +482,7 @@ export default function WorkspacePage() {
         <div className="flex flex-col shrink-0" style={{
           width: isMobile ? "100%" : sourceWidth,
           display: isMobile && mobilePanel !== "sources" ? "none" : undefined,
+          background: "var(--color-surface-dim)",
         }}>
           <div className="px-3 py-2.5 text-xs font-medium border-b flex items-center justify-between"
             style={{ color: "var(--color-text-muted)", borderColor: "var(--color-border)" }}>
@@ -693,8 +695,8 @@ export default function WorkspacePage() {
                       title="Graph Relationship Visualization"
                       badge={(() => {
                         const total = workspace.roadmap.skillTree!.length;
-                        const mastered = workspace.roadmap.skillTree!.filter((s) => workspace.skillProgress[s.name] === "mastered").length;
-                        const learning = workspace.roadmap.skillTree!.filter((s) => workspace.skillProgress[s.name] === "learning").length;
+                        const mastered = workspace.roadmap.skillTree!.filter((s) => resolveSkillStatus(workspace.skillProgress[s.name]) === "mastered").length;
+                        const learning = workspace.roadmap.skillTree!.filter((s) => resolveSkillStatus(workspace.skillProgress[s.name]) === "learning").length;
                         if (mastered === 0 && learning === 0) return undefined;
                         return <span className="text-[10px] px-2 py-0.5 rounded" style={{ background: "#F5F5F5", color: "#888", border: "1px solid #E0E0E0" }}>{mastered}/{total} mastered{learning > 0 ? ` · ${learning} learning` : ""}</span>;
                       })()}

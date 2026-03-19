@@ -480,17 +480,20 @@ describe("Skill Progress", () => {
   });
 
   it("PATCH /workspaces/:id/skill-progress updates skill status", async () => {
-    const { status, data } = await patch<{ skillProgress: Record<string, string> }>(
+    const { status, data } = await patch<{ skillProgress: Record<string, any> }>(
       `/workspaces/${workspaceId}/skill-progress`,
       { skillName: "React", status: "learning" },
     );
     expect(status).toBe(200);
-    expect(data.skillProgress.React).toBe("learning");
+    // Now returns SkillProgressEntry object
+    expect(data.skillProgress.React).toMatchObject({ status: "learning" });
+    expect(data.skillProgress.React.lastActiveAt).toBeTypeOf("number");
+    expect(data.skillProgress.React.firstSeenAt).toBeTypeOf("number");
   });
 
   it("skill progress persists in workspace", async () => {
-    const { data } = await get<{ skillProgress: Record<string, string> }>(`/workspaces/${workspaceId}`);
-    expect(data.skillProgress.React).toBe("learning");
+    const { data } = await get<{ skillProgress: Record<string, any> }>(`/workspaces/${workspaceId}`);
+    expect(data.skillProgress.React).toMatchObject({ status: "learning" });
   });
 
   it("setting not_started removes the entry", async () => {

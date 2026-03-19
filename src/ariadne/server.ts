@@ -5,14 +5,6 @@ import { fileURLToPath } from "url";
 import path from "path";
 
 import multer from "multer";
-import { Readability } from "@mozilla/readability";
-import { JSDOM } from "jsdom";
-import { ChatAnthropic } from "@langchain/anthropic";
-import { HumanMessage } from "@langchain/core/messages";
-import { createRequire } from "module";
-import mammoth from "mammoth";
-const require = createRequire(import.meta.url);
-const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
 import { generateRoadbook, generateJourneyRoadbook } from "./workflow.js";
 import type { ModelOverride } from "./workflow.js";
 import { ingestSource, retrieve, removeSource, clearStore } from "./rag.js";
@@ -22,169 +14,22 @@ import type { ChatMessage } from "./chat.js";
 import { inferProvider, getModel } from "./config.js";
 import type { ModelProvider } from "./config.js";
 import { logTracingStatus } from "./tracing.js";
-
-// ── Types ────────────────────────────────────────────────────────────────────
-
-export interface Roadmap {
-  id: string;
-  markdown: string;
-  skillTree?: import("./types.js").SkillNode[];
-  generatedAt: number;
-}
-
-export interface Source {
-  id: string;
-  type: "text" | "url" | "file";
-  origin: "external" | "research";
-  reference: string;
-  snapshot: string;
-  ingestedAt: number;
-  language: string;
-  roadmap: Roadmap | null;
-  digestedSegmentIds: string[];
-}
-
-export interface Insight {
-  id: string;
-  content: string;
-  sourceRef?: { sourceId: string; segment?: string };
-  createdAt: number;
-}
-
-export interface ResearchTodo {
-  id: string;
-  topic: string;
-  description?: string;
-  status: "pending" | "in-progress" | "done";
-  linkedSkillNode?: string;
-  resultSourceId?: string;
-  createdAt: number;
-}
-
-export type SkillStatus = "not_started" | "learning" | "mastered";
-
-export interface Workspace {
-  id: string;
-  title: string;
-  createdAt: number;
-  updatedAt: number;
-  roadmap: Roadmap | null;
-  sources: Source[];
-  insights: Insight[];
-  researchTodos: ResearchTodo[];
-  skillProgress: Record<string, SkillStatus>;
-}
-
-// ── Store (SQLite-backed) ────────────────────────────────────────────────────
-
-function loadStore(): Workspace[] {
-  return store.loadAll();
-}
-
-function findWorkspace(id: string): Workspace | undefined {
-  return store.findById(id);
-}
-
-function updateWorkspace(updated: Workspace) {
-  return store.updateWorkspace(updated);
-}
-
-function uid() {
-  return crypto.randomUUID();
-}
-
-// ── App ──────────────────────────────────────────────────────────────────────
+import { fetchUrlSnapshot, extractFileText } from "./content-extractor.js";
+import type { Workspace, Source, Insight, ResearchTodo, SkillStatus, SkillProgressEntry } from "./types.js";
+import { resolveSkillStatus } from "./store.js";
+import skillRoutes from "./routes/skills.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// Job boards and SPAs that require a headless renderer to extract content
-const SPA_PATTERNS = [
-  /zhipin\.com/,       // BOSS直聘
-  /linkedin\.com/,     // LinkedIn
-  /lagou\.com/,        // 拉勾
-  /maimai\.cn/,        // 脉脉
-  /liepin\.com/,       // 猎聘
-  /51job\.com/,        // 前程无忧
-  /zhaopin\.com/,      // 智联招聘
-];
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_FILE_SIZE } });
 
-async function fetchViaJina(url: string): Promise<string> {
-  const res = await fetch(`https://r.jina.ai/${url}`, {
-    headers: {
-      "Accept": "text/plain",
-      "User-Agent": "Mozilla/5.0 (compatible; Ariadne/1.0)",
-    },
-    signal: AbortSignal.timeout(30_000),
-  });
-  if (!res.ok) throw new Error(`Jina Reader failed: ${res.status} ${res.statusText}`);
-  const text = await res.text();
-  if (!text.trim()) throw new Error("Could not extract content via Jina Reader");
-  return text.replace(/\s+/g, " ").trim();
+function setupSSE(res: express.Response): (data: object) => void {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  return (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 }
-
-async function fetchUrlSnapshot(url: string): Promise<string> {
-  // Route known SPA / job-board URLs directly through Jina Reader
-  if (SPA_PATTERNS.some((p) => p.test(url))) {
-    return fetchViaJina(url);
-  }
-
-  // Standard fetch + Readability for regular pages
-  const res = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0 (compatible; Ariadne/1.0)" },
-    signal: AbortSignal.timeout(15_000),
-  });
-  if (!res.ok) throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
-  const html = await res.text();
-  const dom = new JSDOM(html, { url });
-  const article = new Readability(dom.window.document).parse();
-  const text = article?.textContent?.replace(/\s+/g, " ").trim() ?? "";
-
-  // Fallback to Jina if content is suspiciously thin (likely an SPA)
-  if (text.length < 200) {
-    return fetchViaJina(url);
-  }
-
-  return text;
-}
-
-async function extractFileText(buffer: Buffer, mimeType: string, filename: string): Promise<string> {
-  // Plain text
-  if (mimeType === "text/plain" || filename.endsWith(".txt") || filename.endsWith(".md")) {
-    return buffer.toString("utf-8").trim();
-  }
-  // PDF
-  if (mimeType === "application/pdf" || filename.endsWith(".pdf")) {
-    const data = await pdfParse(buffer);
-    if (!data.text.trim()) throw new Error("Could not extract text from PDF");
-    return data.text.trim();
-  }
-  // DOCX
-  if (
-    mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-    filename.endsWith(".docx")
-  ) {
-    const result = await mammoth.extractRawText({ buffer });
-    if (!result.value.trim()) throw new Error("Could not extract text from DOCX");
-    return result.value.trim();
-  }
-  // Image → Claude OCR
-  if (mimeType.startsWith("image/")) {
-    const model = new ChatAnthropic({ model: "claude-haiku-4-5-20251001", maxTokens: 4096 });
-    const b64 = buffer.toString("base64");
-    const res = await model.invoke([
-      new HumanMessage({
-        content: [
-          { type: "image_url", image_url: { url: `data:${mimeType};base64,${b64}` } },
-          { type: "text", text: "Extract all text from this image verbatim. Return only the extracted text, no commentary." },
-        ],
-      }),
-    ]);
-    return (res.content as string).trim();
-  }
-  throw new Error(`Unsupported file type: ${mimeType}`);
-}
-
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 // ── App ───────────────────────────────────────────────────────────────────────
 
@@ -194,6 +39,9 @@ const PORT = Number(process.env.ARIADNE_PORT) || 3001;
 const CORS_ORIGIN = process.env.CORS_ORIGIN;
 app.use(cors(CORS_ORIGIN ? { origin: CORS_ORIGIN.split(",") } : undefined));
 app.use(express.json({ limit: "2mb" }));
+
+// Mount skill routes (skill-events, skill-index)
+app.use("/", skillRoutes);
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", engine: "ariadne" });
@@ -233,12 +81,12 @@ app.get("/models", async (_req, res) => {
 
 // List workspaces (metadata only)
 app.get("/workspaces", (_req, res) => {
-  const all = loadStore();
+  const all = store.loadAll();
   const list = all.map(({ id, title, createdAt, updatedAt, sources, roadmap, skillProgress }) => {
     const skillNames = new Set<string>();
     for (const node of roadmap?.skillTree ?? []) skillNames.add(node.name);
     for (const s of sources) for (const node of s.roadmap?.skillTree ?? []) skillNames.add(node.name);
-    const mastered = [...skillNames].filter((n) => skillProgress[n] === "mastered").length;
+    const mastered = [...skillNames].filter((n) => resolveSkillStatus(skillProgress[n]) === "mastered").length;
     return {
       id,
       title,
@@ -257,7 +105,7 @@ app.get("/workspaces", (_req, res) => {
 app.post("/workspaces", (req, res) => {
   const { title } = req.body as { title?: string };
   const workspace: Workspace = {
-    id: uid(),
+    id: crypto.randomUUID(),
     title: title?.trim() || "New Journey",
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -273,18 +121,18 @@ app.post("/workspaces", (req, res) => {
 
 // Get workspace (full)
 app.get("/workspaces/:id", (req, res) => {
-  const workspace = findWorkspace(req.params.id);
+  const workspace = store.findById(req.params.id);
   if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
   res.json(workspace);
 });
 
 // Update workspace (rename)
 app.patch("/workspaces/:id", (req, res) => {
-  const workspace = findWorkspace(req.params.id);
+  const workspace = store.findById(req.params.id);
   if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
   const { title } = req.body as { title?: string };
   if (title?.trim()) workspace.title = title.trim();
-  updateWorkspace(workspace);
+  store.updateWorkspace(workspace);
   res.json(workspace);
 });
 
@@ -299,12 +147,12 @@ app.delete("/workspaces/:id", (req, res) => {
 
 // Add source
 app.post("/workspaces/:id/sources", (req, res) => {
-  const workspace = findWorkspace(req.params.id);
+  const workspace = store.findById(req.params.id);
   if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
   const { text, language } = req.body as { text?: string; language?: string };
   if (!text?.trim()) { res.status(400).json({ error: "text is required" }); return; }
   const source: Source = {
-    id: uid(),
+    id: crypto.randomUUID(),
     type: "text",
     origin: "external",
     reference: text.trim(),
@@ -315,20 +163,20 @@ app.post("/workspaces/:id/sources", (req, res) => {
     digestedSegmentIds: [],
   };
   workspace.sources.push(source);
-  updateWorkspace(workspace);
+  store.updateWorkspace(workspace);
   res.status(201).json(source);
 });
 
 // Add URL source
 app.post("/workspaces/:id/sources/url", async (req, res) => {
-  const workspace = findWorkspace(req.params.id);
+  const workspace = store.findById(req.params.id);
   if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
   const { url, language } = req.body as { url?: string; language?: string };
   if (!url?.trim()) { res.status(400).json({ error: "url is required" }); return; }
   try {
     const snapshot = await fetchUrlSnapshot(url.trim());
     const source: Source = {
-      id: uid(), type: "url", origin: "external",
+      id: crypto.randomUUID(), type: "url", origin: "external",
       reference: url.trim(),
       snapshot,
       ingestedAt: Date.now(),
@@ -337,7 +185,7 @@ app.post("/workspaces/:id/sources/url", async (req, res) => {
       digestedSegmentIds: [],
     };
     workspace.sources.push(source);
-    updateWorkspace(workspace);
+    store.updateWorkspace(workspace);
     res.status(201).json(source);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -347,14 +195,14 @@ app.post("/workspaces/:id/sources/url", async (req, res) => {
 
 // Add file source (PDF / DOCX / TXT / image)
 app.post("/workspaces/:id/sources/file", upload.single("file"), async (req, res) => {
-  const workspace = findWorkspace(req.params.id as string);
+  const workspace = store.findById(req.params.id as string);
   if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
   if (!req.file) { res.status(400).json({ error: "file is required" }); return; }
   const language = (req.body as { language?: string }).language ?? "English";
   try {
     const snapshot = await extractFileText(req.file.buffer, req.file.mimetype, req.file.originalname);
     const source: Source = {
-      id: uid(), type: "file", origin: "external",
+      id: crypto.randomUUID(), type: "file", origin: "external",
       reference: req.file.originalname,
       snapshot,
       ingestedAt: Date.now(),
@@ -363,7 +211,7 @@ app.post("/workspaces/:id/sources/file", upload.single("file"), async (req, res)
       digestedSegmentIds: [],
     };
     workspace.sources.push(source);
-    updateWorkspace(workspace);
+    store.updateWorkspace(workspace);
     res.status(201).json(source);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -373,19 +221,19 @@ app.post("/workspaces/:id/sources/file", upload.single("file"), async (req, res)
 
 // Delete source
 app.delete("/workspaces/:id/sources/:sourceId", (req, res) => {
-  const workspace = findWorkspace(req.params.id);
+  const workspace = store.findById(req.params.id);
   if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
   const removed = workspace.sources.find((s) => s.id === req.params.sourceId);
   workspace.sources = workspace.sources.filter((s) => s.id !== req.params.sourceId);
   if (removed) removeSource(workspace.id, removed.reference);
-  updateWorkspace(workspace);
+  store.updateWorkspace(workspace);
   res.json({ ok: true });
 });
 
 // ── Generate journey roadmap (multi-source merge) ─────────────────────────────
 
 app.post("/workspaces/:id/generate-journey", async (req, res) => {
-  const workspace = findWorkspace(req.params.id);
+  const workspace = store.findById(req.params.id);
   if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
 
   const { sourceIds, model } = req.body as { sourceIds?: string[]; model?: string };
@@ -398,22 +246,19 @@ app.post("/workspaces/:id/generate-journey", async (req, res) => {
     ? { provider: inferProvider(model), modelName: model }
     : undefined;
 
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  const send = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+  const send = setupSSE(res);
 
   try {
     const snapshots = selected.map((s) => ({ text: s.snapshot, language: s.language }));
     const output = await generateJourneyRoadbook(snapshots, (evt) => send({ type: "progress", ...evt }), modelOverride);
-    workspace.roadmap = { id: workspace.roadmap?.id ?? uid(), markdown: output.markdown, skillTree: output.skillTree, generatedAt: Date.now() };
+    workspace.roadmap = { id: workspace.roadmap?.id ?? crypto.randomUUID(), markdown: output.markdown, skillTree: output.skillTree, generatedAt: Date.now() };
 
     if (workspace.title === "New Journey") {
       const titleMatch = output.markdown.match(/^#\s+(.+)$/m);
       if (titleMatch) workspace.title = titleMatch[1].trim();
     }
 
-    updateWorkspace(workspace);
+    store.updateWorkspace(workspace);
     send({ type: "done", roadmap: workspace.roadmap, workspaceTitle: workspace.title, failedSkills: output.failedSkills });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -426,7 +271,7 @@ app.post("/workspaces/:id/generate-journey", async (req, res) => {
 // ── Chat SSE stream ───────────────────────────────────────────────────────────
 
 app.post("/workspaces/:id/chat/stream", async (req, res) => {
-  const workspace = findWorkspace(req.params.id as string);
+  const workspace = store.findById(req.params.id as string);
   if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
 
   const { messages, sourceIds, language } = req.body as { messages: ChatMessage[]; sourceIds?: string[]; language?: string };
@@ -440,11 +285,7 @@ app.post("/workspaces/:id/chat/stream", async (req, res) => {
   const userMessage = messages[messages.length - 1].content;
   const history = messages.slice(0, -1);
 
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-
-  const send = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+  const send = setupSSE(res);
 
   try {
     // RAG: lazily ingest sources, then retrieve relevant chunks
@@ -489,8 +330,8 @@ app.post("/workspaces/:id/chat/stream", async (req, res) => {
       : activeSources.find((s) => s.roadmap) ?? null;
 
     if (roadbookUpdate && targetSource) {
-      targetSource.roadmap = { id: targetSource.roadmap?.id ?? uid(), markdown: roadbookUpdate, generatedAt: Date.now() };
-      updateWorkspace(workspace);
+      targetSource.roadmap = { id: targetSource.roadmap?.id ?? crypto.randomUUID(), markdown: roadbookUpdate, generatedAt: Date.now() };
+      store.updateWorkspace(workspace);
     }
 
     send({ done: true, reply, roadbookUpdated: !!roadbookUpdate, roadmap: targetSource?.roadmap ?? null });
@@ -505,7 +346,7 @@ app.post("/workspaces/:id/chat/stream", async (req, res) => {
 // ── Generate roadmap ──────────────────────────────────────────────────────────
 
 app.post("/workspaces/:id/sources/:sourceId/generate", async (req, res) => {
-  const workspace = findWorkspace(req.params.id);
+  const workspace = store.findById(req.params.id);
   if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
   const source = workspace.sources.find((s) => s.id === req.params.sourceId);
   if (!source) { res.status(404).json({ error: "Source not found" }); return; }
@@ -515,21 +356,18 @@ app.post("/workspaces/:id/sources/:sourceId/generate", async (req, res) => {
     ? { provider: inferProvider(model), modelName: model }
     : undefined;
 
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  const send = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+  const send = setupSSE(res);
 
   try {
     const output = await generateRoadbook(source.snapshot, source.language, (evt) => send({ type: "progress", ...evt }), genModelOverride);
-    source.roadmap = { id: uid(), markdown: output.markdown, skillTree: output.skillTree, generatedAt: Date.now() };
+    source.roadmap = { id: crypto.randomUUID(), markdown: output.markdown, skillTree: output.skillTree, generatedAt: Date.now() };
 
     if (workspace.title === "New Journey") {
       const titleMatch = output.markdown.match(/^#\s+(.+)$/m);
       if (titleMatch) workspace.title = titleMatch[1].trim();
     }
 
-    updateWorkspace(workspace);
+    store.updateWorkspace(workspace);
     send({ type: "done", roadmap: source.roadmap, workspaceTitle: workspace.title, failedSkills: output.failedSkills });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -543,7 +381,7 @@ app.post("/workspaces/:id/sources/:sourceId/generate", async (req, res) => {
 // ── Digest (T03) ──────────────────────────────────────────────────────────────
 
 app.post("/workspaces/:id/digest", async (req, res) => {
-  const workspace = findWorkspace(req.params.id);
+  const workspace = store.findById(req.params.id);
   if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
 
   const { sourceId, segmentIds, segments } = req.body as {
@@ -577,14 +415,14 @@ ${segments.join("\n\n---\n\n")}
     const markdown = typeof content === "string" ? content : JSON.stringify(content);
 
     workspace.roadmap = {
-      id: workspace.roadmap?.id ?? uid(),
+      id: workspace.roadmap?.id ?? crypto.randomUUID(),
       markdown,
       generatedAt: Date.now(),
     };
     source.digestedSegmentIds = [
       ...new Set([...source.digestedSegmentIds, ...segmentIds]),
     ];
-    updateWorkspace(workspace);
+    store.updateWorkspace(workspace);
     res.json({ roadmap: workspace.roadmap });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -595,68 +433,68 @@ ${segments.join("\n\n---\n\n")}
 // ── Insights (T04) ────────────────────────────────────────────────────────────
 
 app.post("/workspaces/:id/insights", (req, res) => {
-  const workspace = findWorkspace(req.params.id);
+  const workspace = store.findById(req.params.id);
   if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
   const { content, sourceRef } = req.body as { content?: string; sourceRef?: Insight["sourceRef"] };
   if (!content?.trim()) { res.status(400).json({ error: "content is required" }); return; }
-  const insight: Insight = { id: uid(), content: content.trim(), sourceRef, createdAt: Date.now() };
+  const insight: Insight = { id: crypto.randomUUID(), content: content.trim(), sourceRef, createdAt: Date.now() };
   workspace.insights.push(insight);
-  updateWorkspace(workspace);
+  store.updateWorkspace(workspace);
   res.status(201).json(insight);
 });
 
 app.delete("/workspaces/:id/insights/:insightId", (req, res) => {
-  const workspace = findWorkspace(req.params.id);
+  const workspace = store.findById(req.params.id);
   if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
   workspace.insights = workspace.insights.filter((i) => i.id !== req.params.insightId);
-  updateWorkspace(workspace);
+  store.updateWorkspace(workspace);
   res.json({ ok: true });
 });
 
 // ── Research Todos (T05) ──────────────────────────────────────────────────────
 
 app.post("/workspaces/:id/research-todos", (req, res) => {
-  const workspace = findWorkspace(req.params.id);
+  const workspace = store.findById(req.params.id);
   if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
   const { topic, description, linkedSkillNode } = req.body as Partial<ResearchTodo>;
   if (!topic?.trim()) { res.status(400).json({ error: "topic is required" }); return; }
   const todo: ResearchTodo = {
-    id: uid(), topic: topic.trim(), description, linkedSkillNode,
+    id: crypto.randomUUID(), topic: topic.trim(), description, linkedSkillNode,
     status: "pending", createdAt: Date.now(),
   };
   workspace.researchTodos.push(todo);
-  updateWorkspace(workspace);
+  store.updateWorkspace(workspace);
   res.status(201).json(todo);
 });
 
 app.patch("/workspaces/:id/research-todos/:todoId", (req, res) => {
-  const workspace = findWorkspace(req.params.id);
+  const workspace = store.findById(req.params.id);
   if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
   const todo = workspace.researchTodos.find((t) => t.id === req.params.todoId);
   if (!todo) { res.status(404).json({ error: "Todo not found" }); return; }
   const { status, description } = req.body as Partial<ResearchTodo>;
   if (status) todo.status = status;
   if (description !== undefined) todo.description = description;
-  updateWorkspace(workspace);
+  store.updateWorkspace(workspace);
   res.json(todo);
 });
 
 app.delete("/workspaces/:id/research-todos/:todoId", (req, res) => {
-  const workspace = findWorkspace(req.params.id);
+  const workspace = store.findById(req.params.id);
   if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
   workspace.researchTodos = workspace.researchTodos.filter((t) => t.id !== req.params.todoId);
-  updateWorkspace(workspace);
+  store.updateWorkspace(workspace);
   res.json({ ok: true });
 });
 
 app.post("/workspaces/:id/research-todos/:todoId/run", async (req, res) => {
-  const workspace = findWorkspace(req.params.id);
+  const workspace = store.findById(req.params.id);
   if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
   const todo = workspace.researchTodos.find((t) => t.id === req.params.todoId);
   if (!todo) { res.status(404).json({ error: "Todo not found" }); return; }
 
   todo.status = "in-progress";
-  updateWorkspace(workspace);
+  store.updateWorkspace(workspace);
 
   try {
     const output = await generateRoadbook(
@@ -664,22 +502,22 @@ app.post("/workspaces/:id/research-todos/:todoId/run", async (req, res) => {
       "Chinese",
     );
     const source: Source = {
-      id: uid(), type: "text", origin: "research",
+      id: crypto.randomUUID(), type: "text", origin: "research",
       reference: todo.topic,
       snapshot: `Research: ${todo.topic}\n\n${todo.description ?? ""}`,
       ingestedAt: Date.now(),
       language: "Chinese",
-      roadmap: { id: uid(), markdown: output.markdown, skillTree: output.skillTree, generatedAt: Date.now() },
+      roadmap: { id: crypto.randomUUID(), markdown: output.markdown, skillTree: output.skillTree, generatedAt: Date.now() },
       digestedSegmentIds: [],
     };
     workspace.sources.push(source);
     todo.status = "done";
     todo.resultSourceId = source.id;
-    updateWorkspace(workspace);
+    store.updateWorkspace(workspace);
     res.json({ todo, source });
   } catch (err) {
     todo.status = "pending";
-    updateWorkspace(workspace);
+    store.updateWorkspace(workspace);
     const message = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: message });
   }
@@ -688,58 +526,50 @@ app.post("/workspaces/:id/research-todos/:todoId/run", async (req, res) => {
 // ── Skill Progress (T17) ─────────────────────────────────────────────────────
 
 app.patch("/workspaces/:id/skill-progress", (req, res) => {
-  const workspace = findWorkspace(req.params.id);
+  const workspace = store.findById(req.params.id);
   if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
   const { skillName, status } = req.body as { skillName?: string; status?: SkillStatus };
   if (!skillName || !status || !["not_started", "learning", "mastered"].includes(status)) {
     res.status(400).json({ error: "skillName and valid status required" }); return;
   }
+
+  const now = Date.now();
+  const existing = workspace.skillProgress[skillName] as SkillStatus | SkillProgressEntry | undefined;
+  const oldStatus = resolveSkillStatus(existing);
+
   if (status === "not_started") {
     delete workspace.skillProgress[skillName];
   } else {
-    workspace.skillProgress[skillName] = status;
+    const firstSeenAt = existing && typeof existing === "object" ? existing.firstSeenAt : now;
+    workspace.skillProgress[skillName] = {
+      status,
+      lastActiveAt: now,
+      firstSeenAt,
+    };
   }
-  updateWorkspace(workspace);
-  res.json({ skillProgress: workspace.skillProgress });
-});
 
-// ── Global Skill Index ─────────────────────────────────────────────────────
-
-app.get("/skill-index", (_req, res) => {
-  const workspaces = loadStore();
-  const skillMap = new Map<string, {
-    name: string;
-    category: string;
-    priority: string;
-    workspaces: { id: string; title: string }[];
-    status: SkillStatus | "not_started";
-  }>();
-
-  for (const ws of workspaces) {
-    const trees = [
-      ...(ws.roadmap?.skillTree ?? []),
-      ...ws.sources.flatMap((s) => s.roadmap?.skillTree ?? []),
-    ];
-    for (const node of trees) {
-      const existing = skillMap.get(node.name);
-      if (existing) {
-        if (!existing.workspaces.some((w) => w.id === ws.id)) {
-          existing.workspaces.push({ id: ws.id, title: ws.title });
-        }
-      } else {
-        skillMap.set(node.name, {
-          name: node.name,
-          category: node.category,
-          priority: node.priority,
-          workspaces: [{ id: ws.id, title: ws.title }],
-          status: ws.skillProgress[node.name] ?? "not_started",
-        });
-      }
+  // Record a SkillEvent when the status actually changes
+  if (oldStatus !== status) {
+    try {
+      store.insertSkillEvent({
+        id: crypto.randomUUID(),
+        skillName,
+        fromStatus: oldStatus === "not_started" && !existing ? null : oldStatus,
+        toStatus: status,
+        source: "manual",
+        timestamp: now,
+        workspaceId: workspace.id,
+      });
+    } catch (err) {
+      console.error("Failed to insert skill event:", err);
     }
   }
 
-  res.json({ skills: [...skillMap.values()] });
+  store.updateWorkspace(workspace);
+  res.json({ skillProgress: workspace.skillProgress });
 });
+
+// ── Global Skill Index — moved to routes/skills.ts ─────────────────────────
 
 // ── Production: serve frontend static files ──────────────────────────────────
 

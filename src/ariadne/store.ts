@@ -8,57 +8,8 @@ import Database from "better-sqlite3";
 import { readFileSync, existsSync, mkdirSync, renameSync } from "fs";
 import { join } from "path";
 
-// Workspace type — mirrors server.ts to avoid circular import.
-// Uses SkillNode from types.ts for priority union type compatibility.
-import type { SkillNode } from "./types.js";
-
-interface Roadmap {
-  id: string;
-  markdown: string;
-  skillTree?: SkillNode[];
-  generatedAt: number;
-}
-
-interface Source {
-  id: string;
-  type: "text" | "url" | "file";
-  origin: "external" | "research";
-  reference: string;
-  snapshot: string;
-  ingestedAt: number;
-  language: string;
-  roadmap: Roadmap | null;
-  digestedSegmentIds: string[];
-}
-
-interface Insight {
-  id: string;
-  content: string;
-  sourceRef?: { sourceId: string; segment?: string };
-  createdAt: number;
-}
-
-interface ResearchTodo {
-  id: string;
-  topic: string;
-  description?: string;
-  status: "pending" | "in-progress" | "done";
-  linkedSkillNode?: string;
-  resultSourceId?: string;
-  createdAt: number;
-}
-
-export interface Workspace {
-  id: string;
-  title: string;
-  createdAt: number;
-  updatedAt: number;
-  roadmap: Roadmap | null;
-  sources: Source[];
-  insights: Insight[];
-  researchTodos: ResearchTodo[];
-  skillProgress: Record<string, "not_started" | "learning" | "mastered">;
-}
+import type { Workspace, SkillProgressEntry, SkillStatus, SkillEvent } from "./types.js";
+export type { Workspace };
 
 // ── Database setup ───────────────────────────────────────────────────────────
 
@@ -77,7 +28,7 @@ export function getDb(): Database.Database {
   _db.pragma("journal_mode = WAL");
   _db.pragma("foreign_keys = ON");
 
-  // Create table
+  // Create tables
   _db.exec(`
     CREATE TABLE IF NOT EXISTS workspaces (
       id TEXT PRIMARY KEY,
@@ -87,6 +38,27 @@ export function getDb(): Database.Database {
       data TEXT NOT NULL
     )
   `);
+
+  _db.exec(`
+    CREATE TABLE IF NOT EXISTS skill_events (
+      id TEXT PRIMARY KEY,
+      skill_name TEXT NOT NULL,
+      from_status TEXT,
+      to_status TEXT NOT NULL,
+      source TEXT NOT NULL,
+      timestamp INTEGER NOT NULL,
+      workspace_id TEXT,
+      FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Create indexes (IF NOT EXISTS not supported for indexes in all SQLite versions, so use try/catch)
+  try {
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_events_timestamp ON skill_events(timestamp DESC)`);
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_events_skill ON skill_events(skill_name)`);
+  } catch {
+    // Indexes already exist
+  }
 
   // Migrate from JSON if needed
   migrateFromJson(_db);
@@ -125,13 +97,49 @@ function migrateFromJson(db: Database.Database) {
   }
 }
 
+/**
+ * Helper: resolve a skillProgress entry to its SkillStatus string.
+ * Handles both old format (plain string) and new format (SkillProgressEntry object).
+ */
+export function resolveSkillStatus(
+  entry: SkillStatus | SkillProgressEntry | undefined,
+): SkillStatus {
+  if (!entry) return "not_started";
+  if (typeof entry === "string") return entry;
+  return entry.status;
+}
+
+/**
+ * Migrate skillProgress from old string format to SkillProgressEntry objects.
+ * Idempotent: already-migrated entries are left unchanged.
+ */
+export function migrateSkillProgress(
+  raw: Record<string, SkillStatus | SkillProgressEntry>,
+  fallbackTimestamp: number,
+): Record<string, SkillProgressEntry> {
+  const result: Record<string, SkillProgressEntry> = {};
+  for (const [name, val] of Object.entries(raw)) {
+    if (typeof val === "string") {
+      result[name] = {
+        status: val as SkillStatus,
+        lastActiveAt: fallbackTimestamp,
+        firstSeenAt: fallbackTimestamp,
+      };
+    } else {
+      result[name] = val;
+    }
+  }
+  return result;
+}
+
 function migrateWorkspace(w: Workspace): Workspace {
+  const fallbackTs = w.updatedAt || w.createdAt || Date.now();
   return {
     ...w,
     roadmap: w.roadmap ?? null,
     insights: w.insights ?? [],
     researchTodos: w.researchTodos ?? [],
-    skillProgress: w.skillProgress ?? {},
+    skillProgress: migrateSkillProgress(w.skillProgress ?? {}, fallbackTs),
     sources: (w.sources ?? []).map((s) => ({
       ...s,
       origin: s.origin ?? ("external" as const),
@@ -175,6 +183,66 @@ export function deleteWorkspace(id: string): boolean {
   const db = getDb();
   const result = db.prepare("DELETE FROM workspaces WHERE id = ?").run(id);
   return result.changes > 0;
+}
+
+// ── Skill Events CRUD ─────────────────────────────────────────────────────────
+
+export function insertSkillEvent(event: SkillEvent): void {
+  const db = getDb();
+  db.prepare(
+    "INSERT INTO skill_events (id, skill_name, from_status, to_status, source, timestamp, workspace_id) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  ).run(event.id, event.skillName, event.fromStatus, event.toStatus, event.source, event.timestamp, event.workspaceId ?? null);
+}
+
+export interface SkillEventFilters {
+  limit?: number;
+  skillName?: string;
+  workspaceId?: string;
+}
+
+export function getSkillEvents(filters: SkillEventFilters = {}): SkillEvent[] {
+  const db = getDb();
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (filters.skillName) {
+    conditions.push("skill_name = ?");
+    params.push(filters.skillName);
+  }
+  if (filters.workspaceId) {
+    conditions.push("workspace_id = ?");
+    params.push(filters.workspaceId);
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const limit = filters.limit ?? 50;
+
+  const rows = db.prepare(
+    `SELECT id, skill_name, from_status, to_status, source, timestamp, workspace_id FROM skill_events ${where} ORDER BY timestamp DESC LIMIT ?`
+  ).all(...params, limit) as Array<{
+    id: string;
+    skill_name: string;
+    from_status: string | null;
+    to_status: string;
+    source: string;
+    timestamp: number;
+    workspace_id: string | null;
+  }>;
+
+  return rows.map((r) => ({
+    id: r.id,
+    skillName: r.skill_name,
+    fromStatus: r.from_status as SkillStatus | null,
+    toStatus: r.to_status as SkillStatus,
+    source: r.source as "manual" | "generation" | "chat",
+    timestamp: r.timestamp,
+    workspaceId: r.workspace_id ?? undefined,
+  }));
+}
+
+export function deleteSkillEventsByWorkspace(workspaceId: string): void {
+  const db = getDb();
+  db.prepare("DELETE FROM skill_events WHERE workspace_id = ?").run(workspaceId);
 }
 
 /**

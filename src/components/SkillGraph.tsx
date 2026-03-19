@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import * as d3 from "d3";
-import type { SkillNode, SkillStatus } from "../types";
+import type { SkillNode, SkillStatus, SkillProgressEntry } from "../types";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -18,6 +18,13 @@ const STATUS_COLORS: Record<SkillStatus, string> = {
 const NEXT_STATUS: Record<SkillStatus, SkillStatus> = {
   not_started: "learning", learning: "mastered", mastered: "not_started",
 };
+
+/** Resolve a skillProgress value (old string or new SkillProgressEntry) to SkillStatus. */
+function resolveStatus(val: SkillStatus | SkillProgressEntry | undefined): SkillStatus {
+  if (!val) return "not_started";
+  if (typeof val === "string") return val;
+  return val.status;
+}
 
 const RING_FILLS = [
   "rgba(233,30,99,0.06)",   // ring 0 — high (center)
@@ -183,11 +190,13 @@ function buildGraph(skillTree: SkillNode[], expandedIds: Set<string>) {
 
 interface SkillGraphProps {
   skillTree: SkillNode[];
-  skillProgress?: Record<string, SkillStatus>;
+  skillProgress?: Record<string, SkillStatus | SkillProgressEntry>;
   onStatusChange?: (skillName: string, status: SkillStatus) => void;
+  /** Optional per-node opacity override (e.g. for skill decay). */
+  nodeOpacity?: (skillName: string) => number;
 }
 
-export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange }: SkillGraphProps) {
+export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, nodeOpacity }: SkillGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
@@ -201,6 +210,8 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange }: Sk
   skillProgressRef.current = skillProgress;
   const onStatusChangeRef = useRef(onStatusChange);
   onStatusChangeRef.current = onStatusChange;
+  const nodeOpacityRef = useRef(nodeOpacity);
+  nodeOpacityRef.current = nodeOpacity;
 
   const categories = useMemo(() => [...new Set(skillTree.map((s) => s.category))], [skillTree]);
 
@@ -381,7 +392,11 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange }: Sk
       .attr("fill", (d) => categoryColor(categories, d.category))
       .attr("stroke", "#fff")
       .attr("stroke-width", nodeStrokeWidth)
-      .attr("opacity", (d) => d.kind === "sub" ? 0.65 : d.priority === "low" ? 0.8 : 1);
+      .attr("opacity", (d) => {
+        const base = d.kind === "sub" ? 0.65 : d.priority === "low" ? 0.8 : 1;
+        const decay = nodeOpacityRef.current ? nodeOpacityRef.current(d.name) : 1;
+        return base * decay;
+      });
 
     // Conditional per-node elements via .each()
     node.each(function (d) {
@@ -405,11 +420,11 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange }: Sk
     // Status ring
     node.append("circle").attr("class", "status-ring")
       .attr("r", (d) => d.radius + 3).attr("fill", "none")
-      .attr("stroke", (d) => STATUS_COLORS[skillProgressRef.current[d.name] ?? "not_started"])
+      .attr("stroke", (d) => STATUS_COLORS[resolveStatus(skillProgressRef.current[d.name])])
       .attr("stroke-width", 2)
       .attr("stroke-opacity", (d) => {
-        const s = skillProgressRef.current[d.name];
-        return s && s !== "not_started" ? 0.8 : 0;
+        const s = resolveStatus(skillProgressRef.current[d.name]);
+        return s !== "not_started" ? 0.8 : 0;
       });
 
     // Labels
@@ -462,7 +477,7 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange }: Sk
         event.stopPropagation();
         const cb = onStatusChangeRef.current;
         if (!cb || d.kind === "sub") return;
-        const next = NEXT_STATUS[skillProgressRef.current[d.name] ?? "not_started"];
+        const next = NEXT_STATUS[resolveStatus(skillProgressRef.current[d.name])];
         cb(d.name, next);
         d3.select(event.currentTarget).select(".status-ring")
           .transition().duration(TRANSITION_MS)
@@ -589,7 +604,7 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange }: Sk
 function DetailPanel({ node, categories, skillProgress, onStatusChange, onClose }: {
   node: GraphNode;
   categories: string[];
-  skillProgress: Record<string, SkillStatus>;
+  skillProgress: Record<string, SkillStatus | SkillProgressEntry>;
   onStatusChange?: (name: string, status: SkillStatus) => void;
   onClose: () => void;
 }) {
@@ -651,7 +666,7 @@ function DetailPanel({ node, categories, skillProgress, onStatusChange, onClose 
             <span style={{ display: "block", color: "#888", fontSize: 11, fontWeight: 500, marginBottom: 6 }}>Status:</span>
             <div style={{ display: "flex", gap: 5 }}>
               {(["not_started", "learning", "mastered"] as SkillStatus[]).map((s) => {
-                const current = skillProgress[node.name] ?? "not_started";
+                const current = resolveStatus(skillProgress[node.name]);
                 const active = current === s;
                 const label = { not_started: "Not Started", learning: "Learning", mastered: "Mastered" }[s];
                 const clr = { not_started: "#888", learning: "#F57F17", mastered: "#2E7D32" }[s];
