@@ -151,7 +151,7 @@ function buildGraph(skillTree: SkillNode[], expandedIds: Set<string>) {
     const node: GraphNode = {
       id: skill.name, name: skill.name, category: skill.category,
       priority: skill.priority, description: skill.description, subSkills: skill.subSkills,
-      radius: skill.priority === "high" ? 22 : skill.priority === "medium" ? 14 : 9,
+      radius: skill.priority === "high" ? 30 : skill.priority === "medium" ? 22 : 16,
       kind: "skill", ring: skill.priority === "high" ? 0 : skill.priority === "medium" ? 1 : 2,
     };
     nodes.push(node);
@@ -287,10 +287,11 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
     svg.selectAll("*").remove();
 
     // Background
+    const defs = svg.append("defs");
     svg.append("rect").attr("width", width).attr("height", height).attr("fill", colors.background)
       .on("click", () => {
         handleBackgroundClick();
-        mainGroup.selectAll(".node-circle").transition().duration(TRANSITION_MS).attr("stroke", colors.nodeStroke);
+        mainGroup.selectAll(".node-rect").transition().duration(TRANSITION_MS).attr("stroke", colors.nodeStroke);
         linkPath.transition().duration(TRANSITION_MS)
           .attr("stroke", (d: GraphLink) => defaultLinkStroke(d, colors))
           .attr("stroke-opacity", (d: GraphLink) => defaultLinkOpacity(d));
@@ -408,62 +409,109 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
           }),
       );
 
-    // Main circle
-    node.append("circle").attr("class", "node-circle")
-      .attr("r", (d) => d.radius)
-      .attr("fill", (d) => categoryColor(categories, d.category, colors))
-      .attr("stroke", colors.nodeStroke)
-      .attr("stroke-width", nodeStrokeWidth)
+    // Glow filter
+    const glowFilter = defs.append("filter").attr("id", "node-glow")
+      .attr("x", "-50%").attr("y", "-50%").attr("width", "200%").attr("height", "200%");
+    glowFilter.append("feGaussianBlur").attr("in", "SourceGraphic").attr("stdDeviation", "6").attr("result", "blur");
+    glowFilter.append("feComposite").attr("in", "SourceGraphic").attr("in2", "blur").attr("operator", "over");
+
+    // Rounded-rect node
+    const nodeSize = (d: GraphNode) => d.radius * 2;
+    const nodeRx = (d: GraphNode) => d.priority === "high" ? 16 : d.priority === "medium" ? 12 : 8;
+
+    node.append("rect").attr("class", "node-rect")
+      .attr("width", (d) => nodeSize(d))
+      .attr("height", (d) => nodeSize(d))
+      .attr("x", (d) => -d.radius)
+      .attr("y", (d) => -d.radius)
+      .attr("rx", nodeRx).attr("ry", nodeRx)
+      .attr("fill", (d) => {
+        const status = resolveStatus(skillProgressRef.current[d.name]);
+        if (status === "not_started" && d.kind === "skill") return colors.pendingFill;
+        return categoryColor(categories, d.category, colors);
+      })
+      .attr("stroke", (d) => {
+        const status = resolveStatus(skillProgressRef.current[d.name]);
+        if (status === "not_started" && d.kind === "skill") return colors.pendingStroke;
+        return colors.nodeStroke;
+      })
+      .attr("stroke-width", (d) => {
+        const status = resolveStatus(skillProgressRef.current[d.name]);
+        if (status === "not_started") return 1.5;
+        return d.kind === "sub" ? 1.5 : 2;
+      })
+      .attr("stroke-dasharray", (d) => {
+        const status = resolveStatus(skillProgressRef.current[d.name]);
+        return status === "not_started" ? "4,3" : "none";
+      })
       .attr("opacity", (d) => {
-        const base = d.kind === "sub" ? 0.65 : d.priority === "low" ? 0.8 : 1;
+        const base = d.kind === "sub" ? 0.65 : d.priority === "low" ? 0.85 : 1;
         const decay = nodeOpacityRef.current ? nodeOpacityRef.current(d.name) : 1;
         return base * decay;
+      })
+      .attr("filter", (d) => {
+        const status = resolveStatus(skillProgressRef.current[d.name]);
+        return status !== "not_started" ? "url(#node-glow)" : "none";
       });
 
-    // Conditional per-node elements via .each()
+    // Conditional per-node elements
     node.each(function (d) {
       const el = d3.select(this);
-      // Inner highlight for high priority
-      if (d.priority === "high" && d.kind === "skill") {
-        el.append("circle").attr("r", d.radius - 7)
-          .attr("fill", "rgba(255,255,255,0.3)").attr("pointer-events", "none");
-      }
       // Expand indicator (+/−)
       if (d.kind === "skill" && d.subSkills.length > 0) {
         el.append("text").attr("class", "expand-indicator")
           .text(expandedIds.has(d.id) ? "−" : "+")
-          .attr("x", -d.radius - 2).attr("y", -d.radius - 2)
-          .attr("font-size", 11).attr("font-weight", 700).attr("fill", colors.labelMuted)
-          .attr("text-anchor", "middle").attr("pointer-events", "none")
+          .attr("x", -d.radius + 2).attr("y", -d.radius + 2)
+          .attr("font-size", 10).attr("font-weight", 700).attr("fill", "rgba(255,255,255,0.7)")
+          .attr("text-anchor", "middle").attr("dominant-baseline", "central")
+          .attr("pointer-events", "none")
           .style("font-family", "system-ui");
+      }
+      // Pulse animation class for learning nodes
+      const status = resolveStatus(skillProgressRef.current[d.name]);
+      if (status === "learning") {
+        el.classed("learning-pulse", true);
+      } else if (status === "mastered") {
+        el.classed("mastered-breathe", true);
       }
     });
 
-    // Status ring
-    node.append("circle").attr("class", "status-ring")
-      .attr("r", (d) => d.radius + 3).attr("fill", "none")
-      .attr("stroke", (d) => colors.statusColors[resolveStatus(skillProgressRef.current[d.name])])
-      .attr("stroke-width", 2)
-      .attr("stroke-opacity", (d) => {
-        const s = resolveStatus(skillProgressRef.current[d.name]);
-        return s !== "not_started" ? 0.8 : 0;
-      });
+    // Status indicator dot (top-right corner)
+    node.each(function (d) {
+      const status = resolveStatus(skillProgressRef.current[d.name]);
+      if (status === "not_started") return;
+      const el = d3.select(this);
+      el.append("circle")
+        .attr("cx", d.radius - 4).attr("cy", -d.radius + 4)
+        .attr("r", 4)
+        .attr("fill", colors.statusColors[status])
+        .attr("stroke", colors.nodeStroke)
+        .attr("stroke-width", 1.5);
+    });
 
-    // Labels
+    // Labels INSIDE the node
     node.append("text")
-      .text((d) => d.name.length > 18 ? d.name.substring(0, 18) + "…" : d.name)
-      .attr("dx", (d) => d.radius + 5).attr("dy", 4)
-      .attr("fill", (d) => d.kind === "sub" ? colors.labelMuted : colors.labelColor)
-      .attr("font-size", (d) => d.kind === "sub" ? 9 : d.priority === "high" ? 13 : d.priority === "medium" ? 11 : 10)
-      .attr("font-weight", (d) => d.kind === "sub" ? 400 : d.priority === "high" ? 700 : 500)
+      .text((d) => {
+        const maxLen = d.priority === "high" ? 10 : d.priority === "medium" ? 7 : 5;
+        return d.name.length > maxLen ? d.name.substring(0, maxLen) + "…" : d.name;
+      })
+      .attr("text-anchor", "middle")
+      .attr("dominant-baseline", "central")
+      .attr("fill", (d) => {
+        const status = resolveStatus(skillProgressRef.current[d.name]);
+        if (status === "not_started") return colors.labelMuted;
+        return "#fff";
+      })
+      .attr("font-size", (d) => d.kind === "sub" ? 8 : d.priority === "high" ? 11 : d.priority === "medium" ? 9 : 8)
+      .attr("font-weight", 700)
       .attr("pointer-events", "none")
-      .style("font-family", "system-ui, sans-serif");
+      .style("font-family", "'Plus Jakarta Sans', system-ui, sans-serif");
 
     // ── Interactions ─────────────────────────────────────────────────────────
 
     node
       .on("mouseenter", function (_, d) {
-        d3.select(this).select<SVGCircleElement>(".node-circle")
+        d3.select(this).select<SVGRectElement>(".node-rect")
           .transition().duration(TRANSITION_MS).attr("stroke", colors.labelColor).attr("stroke-width", 3);
         const connected = getConnectedIds(d.id, links);
         node.transition().duration(TRANSITION_MS).style("opacity", (n) => connected.has(n.id) ? 1 : 0.15);
@@ -472,7 +520,7 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
       })
       .on("mouseleave", function () {
         node.each(function (nd) {
-          d3.select(this).select<SVGCircleElement>(".node-circle")
+          d3.select(this).select<SVGRectElement>(".node-rect")
             .transition().duration(TRANSITION_MS).attr("stroke", colors.nodeStroke).attr("stroke-width", nodeStrokeWidth(nd));
         });
         node.transition().duration(TRANSITION_MS).style("opacity", 1);
@@ -484,7 +532,7 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
 
         const connected = getConnectedIds(d.id, links);
         node.each(function (nd) {
-          d3.select(this).select<SVGCircleElement>(".node-circle")
+          d3.select(this).select<SVGRectElement>(".node-rect")
             .transition().duration(TRANSITION_MS)
             .attr("stroke", nd.id === d.id ? colors.highlight : colors.nodeStroke)
             .attr("stroke-width", nd.id === d.id ? 4 : nodeStrokeWidth(nd));

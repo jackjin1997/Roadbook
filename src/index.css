@@ -200,9 +200,13 @@ body > * { position: relative; z-index: 1; }
 }
 
 @keyframes mastered-breathe {
-  0%, 100% { opacity: 0.85; }
+  0%, 100% { opacity: 0.9; }
   50% { opacity: 1; }
 }
+
+/* SVG node animation classes (applied by D3) */
+.learning-pulse { animation: learning-pulse 2.5s ease-in-out infinite; }
+.mastered-breathe { animation: mastered-breathe 3s ease-in-out infinite; }
 
 .anim-fade-up {
   opacity: 0;
