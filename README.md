@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.0-black?style=flat-square" />
+  <img src="https://img.shields.io/badge/version-1.1-6C5CE7?style=flat-square" />
   <img src="https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react" />
   <img src="https://img.shields.io/badge/D3.js-v7-f9a03c?style=flat-square&logo=d3dotjs" />
   <img src="https://img.shields.io/badge/LangGraph-js-1a1a1a?style=flat-square" />
@@ -86,7 +86,8 @@ Inspired by [MiroFish](https://github.com/666ghj/MiroFish)'s Graph Relationship 
 - **Skill Decay** — node opacity fades from 1.0 to 0.3 over 90 days of inactivity
 - **Expandable sub-skills** — click a node to reveal satellite sub-skill nodes
 - **Status tracking** — double-click to cycle Not Started → Learning → Mastered
-- **MiroFish interactions** — pink `#E91E63` selection highlight, connected-node focus
+- **MiroFish interactions** — highlight selection, connected-node focus
+- **Dopamine Max theme** — dual dark/light mode with 10-color category palette and glow effects
 
 ## Quick Start
 
@@ -117,8 +118,9 @@ pnpm ariadne "LangGraph.js" -- --output ./output/langgraph.md
 ## Tech Stack
 
 ```
-Frontend      React 19 · TypeScript · Tailwind CSS 4
+Frontend      React 19 · TypeScript · Tailwind CSS 4 · Satoshi · Plus Jakarta Sans
 Visualization D3.js (radial force graph) · Mermaid (mindmap)
+Design        Dopamine Max (dark/light) · Glassmorphism · CSS custom properties
 Agent Engine  LangGraph.js
 LLM           Gemini / Claude / GPT (switchable)
 Search        Tavily Search API
@@ -129,18 +131,20 @@ Observability LangSmith (tracing + evaluation)
 
 ## Design
 
-UI inspired by [MiroFish](https://github.com/666ghj/MiroFish):
+**Dopamine Max** — dual-theme design system (see [DESIGN.md](./DESIGN.md) for full spec):
 
-- Monochrome palette (`#FAFAFA` / `#1a1a1a`) + dot grid background
-- `ROADBOOK` monospace branding (JetBrains Mono)
-- Pink `#E91E63` accent on interactions
-- Frosted glass floating toolbars
-- 10-color category palette
+- **Dark mode** (primary): deep purple-black `#0A0A12` canvas, neon glow nodes, glassmorphism cards, ambient gradient blobs
+- **Light mode**: warm cream `#FFFBF5` canvas, soft pastel nodes with white halos, warm brown borders
+- **Typography**: Satoshi (hero), Plus Jakarta Sans (body), JetBrains Mono (brand/data)
+- **10-color dopamine palette** per theme — each skill category gets a dedicated vibrant color
+- **Motion**: learning pulse, mastered breathe, unlock burst animations
+- Graph layout inspired by [MiroFish](https://github.com/666ghj/MiroFish)
 
 ## Changelog
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| **v1.1** | 2026-03-20 | Dopamine Max design system: dual dark/light theme, 10-color dopamine palette, glassmorphism, Satoshi + Plus Jakarta Sans typography, ambient glow effects |
 | **v1.0** | 2026-03-19 | Living Skill Graph: global skill map home page, skill decay, JD match, skill timeline, share card with radar chart + PNG export |
 | v0.9 | 2026-03-15 | Radial skill graph, MiroFish UI overhaul, sub-skill expand/collapse, multilingual chat, SSE hardening |
 | v0.8 | 2026-03-12 | SQLite data layer (WAL + auto migration) |
