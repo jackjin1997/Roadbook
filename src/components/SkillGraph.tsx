@@ -9,7 +9,7 @@ const GRAPH_THEMES = {
     categoryColors: ["#FF6B6B","#4ECDC4","#A78BFA","#FF9FF3","#6C5CE7","#74B9FF","#55EFC4","#FF7675","#FFEAA7","#FFE66D"],
     highlight: "#A78BFA",
     statusColors: { not_started: "transparent", learning: "#FFE66D", mastered: "#55EFC4" } as Record<string, string>,
-    ringFills: ["rgba(108,92,231,0.08)","rgba(108,92,231,0.04)","rgba(255,255,255,0.02)"],
+    regionGlow: 0.04,
     labelColor: "#F0F0F5",
     labelMuted: "#9090A8",
     linkStroke: "rgba(255,255,255,0.12)",
@@ -28,7 +28,7 @@ const GRAPH_THEMES = {
     categoryColors: ["#FF8A80","#5CD6C8","#B39DDB","#F8BBD0","#9575CD","#81D4FA","#69F0AE","#FFAB91","#FFE0B2","#FFD54F"],
     highlight: "#9575CD",
     statusColors: { not_started: "transparent", learning: "#FFD54F", mastered: "#69F0AE" } as Record<string, string>,
-    ringFills: ["rgba(149,117,205,0.06)","rgba(149,117,205,0.03)","rgba(200,160,100,0.02)"],
+    regionGlow: 0.04,
     labelColor: "#2D2016",
     labelMuted: "#9E8B76",
     linkStroke: "rgba(200,160,100,0.2)",
@@ -72,7 +72,6 @@ interface GraphNode extends d3.SimulationNodeDatum {
   radius: number;
   kind: "skill" | "sub";
   parentId?: string;
-  ring: number;               // 0=center, 1=mid, 2=outer, 3=sub-skill orbit
 }
 
 interface GraphLink extends d3.SimulationLinkDatum<GraphNode> {
@@ -140,6 +139,49 @@ function curvedMidpoint(sx: number, sy: number, tx: number, ty: number, offset: 
   return { x: 0.25 * sx + 0.5 * cp.x + 0.25 * tx, y: 0.25 * sy + 0.5 * cp.y + 0.25 * ty };
 }
 
+// ── Category territory positions ─────────────────────────────────────────────
+
+/**
+ * Distribute category centers across the full canvas rectangle in a grid-like
+ * pattern so each category "owns" a visible territory — like regions on a map.
+ */
+function categoryPositions(
+  categories: string[], cx: number, cy: number, width: number, height: number,
+): Map<string, { x: number; y: number }> {
+  const map = new Map<string, { x: number; y: number }>();
+  const n = categories.length;
+  if (n === 0) return map;
+  if (n === 1) { map.set(categories[0], { x: cx, y: cy }); return map; }
+
+  // Determine grid dimensions that best fill the canvas rectangle
+  const aspect = width / height;
+  let cols = Math.round(Math.sqrt(n * aspect));
+  let rows = Math.ceil(n / cols);
+  // Ensure we have enough cells
+  if (cols * rows < n) cols = Math.ceil(n / rows);
+
+  // Margins: keep 15% padding on each side so nodes don't clip
+  const padX = width * 0.15, padY = height * 0.15;
+  const usableW = width - 2 * padX;
+  const usableH = height - 2 * padY;
+  const cellW = cols > 1 ? usableW / (cols - 1) : 0;
+  const cellH = rows > 1 ? usableH / (rows - 1) : 0;
+  const startX = padX + (cols === 1 ? usableW / 2 : 0);
+  const startY = padY + (rows === 1 ? usableH / 2 : 0);
+
+  for (let i = 0; i < n; i++) {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    // Offset odd rows slightly for a more organic, hex-grid feel
+    const hexShift = rows > 1 && row % 2 === 1 ? cellW * 0.3 : 0;
+    map.set(categories[i], {
+      x: startX + col * cellW + hexShift,
+      y: startY + row * cellH,
+    });
+  }
+  return map;
+}
+
 // ── Build graph ──────────────────────────────────────────────────────────────
 
 function buildGraph(skillTree: SkillNode[], expandedIds: Set<string>) {
@@ -152,7 +194,7 @@ function buildGraph(skillTree: SkillNode[], expandedIds: Set<string>) {
       id: skill.name, name: skill.name, category: skill.category,
       priority: skill.priority, description: skill.description, subSkills: skill.subSkills,
       radius: skill.priority === "high" ? 30 : skill.priority === "medium" ? 22 : 16,
-      kind: "skill", ring: skill.priority === "high" ? 0 : skill.priority === "medium" ? 1 : 2,
+      kind: "skill",
     };
     nodes.push(node);
     nodeSet.set(skill.name, node);
@@ -166,7 +208,7 @@ function buildGraph(skillTree: SkillNode[], expandedIds: Set<string>) {
       const subNode: GraphNode = {
         id: `${skill.name}::${sub}`, name: sub, category: skill.category,
         priority: "low", description: "", subSkills: [],
-        radius: 5, kind: "sub", parentId: skill.name, ring: 3,
+        radius: 5, kind: "sub", parentId: skill.name,
       };
       nodes.push(subNode);
       nodeSet.set(subNode.id, subNode);
@@ -272,9 +314,8 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
 
     const { width, height } = dimensions;
     const cx = width / 2, cy = height / 2;
-    const maxR = Math.min(width, height) / 2 - 40;
-    const ringRadii = [maxR * 0.18, maxR * 0.45, maxR * 0.75];
     const { nodes, links } = buildGraph(skillTree, expandedIds);
+    const catPos = categoryPositions(categories, cx, cy, width, height);
 
     // Restore cached positions for smooth re-render
     const hasCache = posCache.current.size > 0;
@@ -305,40 +346,79 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
         .on("zoom", (event) => mainGroup.attr("transform", event.transform)),
     );
 
-    // ── Archery target rings ─────────────────────────────────────────────────
+    // ── Category territory regions ──────────────────────────────────────────
 
-    const ringGroup = mainGroup.append("g").attr("class", "rings");
-    const ringLabels = ["High", "Medium", "Low"];
-    for (let i = ringRadii.length - 1; i >= 0; i--) {
-      ringGroup.append("circle").attr("cx", cx).attr("cy", cy).attr("r", ringRadii[i])
-        .attr("fill", colors.ringFills[i]).attr("stroke", "none");
-      ringGroup.append("circle").attr("cx", cx).attr("cy", cy).attr("r", ringRadii[i])
+    const regionGroup = mainGroup.append("g").attr("class", "regions");
+    // Size each territory to roughly fill its grid cell
+    const catCount = catPos.size;
+    const regionRadius = catCount <= 2
+      ? Math.min(width, height) * 0.3
+      : Math.min(width, height) / (Math.sqrt(catCount) + 0.5) * 0.55;
+
+    let catIdx = 0;
+    for (const [cat, pos] of catPos) {
+      const col = categoryColor(categories, cat, colors);
+
+      // Soft glow filter per category
+      const filterId = `region-blur-${catIdx}`;
+      const regionFilter = defs.append("filter").attr("id", filterId)
+        .attr("x", "-50%").attr("y", "-50%").attr("width", "200%").attr("height", "200%");
+      regionFilter.append("feGaussianBlur").attr("in", "SourceGraphic").attr("stdDeviation", regionRadius * 0.35);
+
+      // Territory glow — large blurred circle
+      regionGroup.append("circle")
+        .attr("cx", pos.x).attr("cy", pos.y).attr("r", regionRadius)
+        .attr("fill", col).attr("opacity", colors.regionGlow * 2.5)
+        .attr("filter", `url(#${filterId})`)
+        .attr("stroke", "none");
+
+      // Subtle dashed territory border
+      regionGroup.append("circle")
+        .attr("cx", pos.x).attr("cy", pos.y).attr("r", regionRadius * 0.75)
         .attr("fill", "none")
-        .attr("stroke", i === 0 ? colors.highlight : colors.linkStroke)
-        .attr("stroke-width", i === 0 ? 2 : 1)
-        .attr("stroke-dasharray", i === 0 ? "none" : "4,4");
-      ringGroup.append("text")
-        .attr("x", cx + ringRadii[i] - 6).attr("y", cy - 6)
-        .attr("fill", colors.labelMuted)
-        .attr("font-size", 9).attr("font-weight", 600).attr("text-anchor", "end")
-        .text(ringLabels[i]);
+        .attr("stroke", col).attr("stroke-opacity", 0.12)
+        .attr("stroke-width", 1).attr("stroke-dasharray", "6,4");
+
+      // Category label
+      regionGroup.append("text")
+        .attr("x", pos.x).attr("y", pos.y - regionRadius * 0.75 - 8)
+        .attr("fill", col).attr("font-size", 12).attr("opacity", 0.6)
+        .attr("font-weight", 700).attr("text-anchor", "middle")
+        .attr("letter-spacing", "0.08em")
+        .style("font-family", "'Plus Jakarta Sans', system-ui, sans-serif")
+        .style("text-transform", "uppercase")
+        .text(cat);
+
+      catIdx++;
     }
-    ringGroup.append("circle").attr("cx", cx).attr("cy", cy).attr("r", 4)
-      .attr("fill", colors.highlight).attr("opacity", 0.3);
 
     // ── Force simulation ─────────────────────────────────────────────────────
 
+    /** Resolve category center for a node (sub-skills follow parent). */
+    const nodeCatPos = (d: GraphNode) => {
+      const cat = d.parentId
+        ? (nodes.find((n) => n.id === d.parentId)?.category ?? d.category)
+        : d.category;
+      return catPos.get(cat) ?? { x: cx, y: cy };
+    };
+
+    const pullStrength = (d: GraphNode): number =>
+      d.kind === "sub" ? 0.25 : d.priority === "high" ? 0.55 : d.priority === "medium" ? 0.45 : 0.35;
+
     const simulation = d3.forceSimulation(nodes)
       .force("link", d3.forceLink<GraphNode, GraphLink>(links).id((d) => d.id)
-        .distance((d) => d.type === "sub" ? 50 : 100))
+        .distance((d) => {
+          if (d.type === "sub") return 50;
+          const s = d.source as GraphNode, t = d.target as GraphNode;
+          // Cross-category links are longer
+          const sCat = s.category, tCat = t.category;
+          return sCat === tCat ? 60 : 120;
+        }))
       .force("charge", d3.forceManyBody<GraphNode>().strength((d) =>
-        d.kind === "sub" ? -60 : d.priority === "high" ? -350 : d.priority === "medium" ? -200 : -120))
-      .force("collide", d3.forceCollide<GraphNode>().radius((d) => d.radius + (d.kind === "sub" ? 12 : 25)))
-      .force("radial", d3.forceRadial<GraphNode>(
-        (d) => d.kind === "sub" ? ringRadii[2] + 40 : ringRadii[d.ring] ?? ringRadii[2], cx, cy,
-      ).strength((d) => d.kind === "sub" ? 0.15 : 0.6))
-      .force("x", d3.forceX(cx).strength(0.01))
-      .force("y", d3.forceY(cy).strength(0.01));
+        d.kind === "sub" ? -40 : d.priority === "high" ? -250 : d.priority === "medium" ? -150 : -80))
+      .force("collide", d3.forceCollide<GraphNode>().radius((d) => d.radius + (d.kind === "sub" ? 10 : 20)))
+      .force("x", d3.forceX<GraphNode>((d) => nodeCatPos(d).x).strength(pullStrength))
+      .force("y", d3.forceY<GraphNode>((d) => nodeCatPos(d).y).strength(pullStrength));
 
     if (hasCache) { simulation.alpha(0.3).alphaDecay(0.03); }
     else { simulation.alphaDecay(0.02); }
