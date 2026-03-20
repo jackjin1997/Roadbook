@@ -4,6 +4,7 @@ import { getSkillIndex, createWorkspace } from "../api";
 import type { SkillIndexEntry } from "../api";
 import type { SkillNode } from "../types";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useTheme } from "../contexts/ThemeContext";
 import { useToast } from "../contexts/ToastContext";
 import { t, LANGUAGES } from "../i18n";
 import { SkillGraph } from "../components/SkillGraph";
@@ -35,6 +36,7 @@ function toSkillTree(skills: SkillIndexEntry[]): SkillNode[] {
 export default function Home() {
   const navigate = useNavigate();
   const { language, setLanguage } = useLanguage();
+  const { theme, toggleTheme } = useTheme();
   const i = t(language);
   const toast = useToast();
   const [skills, setSkills] = useState<SkillIndexEntry[]>([]);
@@ -102,9 +104,9 @@ export default function Home() {
       {/* Header */}
       <header
         className="flex items-center px-4 md:px-8 py-3 md:py-4 border-b shrink-0"
-        style={{ borderColor: "var(--color-border)", background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)" }}
+        style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", backdropFilter: "var(--backdrop)", WebkitBackdropFilter: "var(--backdrop)" }}
       >
-        <span className="text-base font-bold gradient-text" style={{ fontFamily: "'JetBrains Mono', 'SF Mono', monospace", letterSpacing: "0.12em" }}>ROADBOOK</span>
+        <span className="text-base font-bold gradient-text" style={{ fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.12em" }}>ROADBOOK</span>
         <div className="ml-auto flex items-center gap-3">
           <button
             onClick={() => navigate("/match")}
@@ -140,6 +142,14 @@ export default function Home() {
             className="btn-gradient px-3 py-1.5 rounded-lg text-xs font-medium"
           >
             {creating ? i.creating : i.newJourney}
+          </button>
+          <button
+            onClick={toggleTheme}
+            className="text-xs px-3 py-1.5 rounded-lg transition-colors"
+            style={{ border: "1px solid var(--color-border)", color: "var(--color-text-muted)", background: "var(--color-surface)" }}
+            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {theme === "dark" ? "☀️" : "🌙"}
           </button>
           <select
             value={language}
@@ -189,13 +199,13 @@ export default function Home() {
             </div>
             <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--color-border)", maxWidth: 200 }}>
               <div className="h-full flex">
-                {mastered > 0 && <div style={{ width: `${(mastered / totalSkills) * 100}%`, background: "#00B894" }} />}
-                {learning > 0 && <div style={{ width: `${(learning / totalSkills) * 100}%`, background: "#FDCB6E" }} />}
+                {mastered > 0 && <div style={{ width: `${(mastered / totalSkills) * 100}%`, background: "var(--color-success)" }} />}
+                {learning > 0 && <div style={{ width: `${(learning / totalSkills) * 100}%`, background: "var(--color-warning)" }} />}
               </div>
             </div>
             <div className="flex items-center gap-4 text-xs" style={{ color: "var(--color-text-muted)" }}>
-              <span><span className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: "#00B894" }} />{mastered} mastered</span>
-              <span><span className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: "#FDCB6E" }} />{learning} learning</span>
+              <span><span className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: "var(--color-success)" }} />{mastered} mastered</span>
+              <span><span className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: "var(--color-warning)" }} />{learning} learning</span>
               <span><span className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: "var(--color-border)" }} />{totalSkills - mastered - learning} pending</span>
             </div>
           </div>
@@ -206,6 +216,7 @@ export default function Home() {
               skillTree={skillTree}
               skillProgress={skillProgress}
               nodeOpacity={nodeOpacity}
+              theme={theme}
             />
           </div>
         </div>
@@ -248,7 +259,7 @@ function HeroSection({ i, creating, onNew }: { i: ReturnType<typeof t>; creating
       <div className="anim-fade-up" style={{ marginBottom: 32 }}>
         <span style={{
           fontSize: 11, letterSpacing: "0.25em", textTransform: "uppercase",
-          color: "#888", fontWeight: 600,
+          color: "var(--color-text-dim)", fontWeight: 600,
           fontFamily: "'JetBrains Mono', 'SF Mono', monospace",
         }}>
           Roadbook &nbsp;/&nbsp; Living Skill Graph
@@ -258,6 +269,7 @@ function HeroSection({ i, creating, onNew }: { i: ReturnType<typeof t>; creating
       <h1 style={{
         fontSize: "clamp(44px, 7vw, 76px)",
         fontWeight: 700,
+        fontFamily: "'Satoshi', sans-serif",
         letterSpacing: "-0.02em",
         lineHeight: 1.15,
         color: "var(--color-text)",
@@ -272,7 +284,7 @@ function HeroSection({ i, creating, onNew }: { i: ReturnType<typeof t>; creating
 
       <p style={{
         fontSize: 15,
-        color: "var(--color-text-muted)",
+        color: "var(--color-text-dim)",
         letterSpacing: "0.04em",
         marginBottom: 48,
         opacity: showSub ? 0.7 : 0,

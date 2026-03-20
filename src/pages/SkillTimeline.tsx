@@ -6,9 +6,9 @@ import { useLanguage } from "../contexts/LanguageContext";
 import { t } from "../i18n";
 
 const STATUS_COLORS: Record<string, string> = {
-  mastered: "#00B894",
-  learning: "#FDCB6E",
-  not_started: "#BDBDBD",
+  mastered: "var(--color-success)",
+  learning: "var(--color-warning)",
+  not_started: "var(--color-text-dim)",
 };
 
 function statusLabel(status: string | null): string {
@@ -62,7 +62,7 @@ export default function SkillTimeline() {
       {/* Header */}
       <header
         className="flex items-center px-4 md:px-8 py-3 md:py-4 border-b shrink-0"
-        style={{ borderColor: "var(--color-border)", background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)" }}
+        style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", backdropFilter: "var(--backdrop)" }}
       >
         <span
           className="text-base font-bold gradient-text cursor-pointer"
@@ -139,8 +139,8 @@ export default function SkillTimeline() {
                   <div
                     className="absolute left-[11px] top-1.5 w-[10px] h-[10px] rounded-full border-2"
                     style={{
-                      borderColor: STATUS_COLORS[event.toStatus] ?? "#BDBDBD",
-                      background: STATUS_COLORS[event.toStatus] ?? "#BDBDBD",
+                      borderColor: STATUS_COLORS[event.toStatus] ?? "var(--color-text-dim)",
+                      background: STATUS_COLORS[event.toStatus] ?? "var(--color-text-dim)",
                     }}
                   />
 
@@ -161,11 +161,11 @@ export default function SkillTimeline() {
                       </span>
                     </div>
                     <div className="text-xs mb-1" style={{ color: "var(--color-text-muted)" }}>
-                      <span style={{ color: STATUS_COLORS[event.fromStatus ?? "not_started"] ?? "#BDBDBD" }}>
+                      <span style={{ color: STATUS_COLORS[event.fromStatus ?? "not_started"] ?? "var(--color-text-dim)" }}>
                         {statusLabel(event.fromStatus)}
                       </span>
                       <span className="mx-1">{"\u2192"}</span>
-                      <span style={{ color: STATUS_COLORS[event.toStatus] ?? "#BDBDBD" }}>
+                      <span style={{ color: STATUS_COLORS[event.toStatus] ?? "var(--color-text-dim)" }}>
                         {statusLabel(event.toStatus)}
                       </span>
                     </div>

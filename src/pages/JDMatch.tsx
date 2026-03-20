@@ -7,9 +7,9 @@ import { t } from "../i18n";
 
 function PriorityBadge({ priority }: { priority: string }) {
   const colors: Record<string, { bg: string; text: string }> = {
-    high: { bg: "#FDEDED", text: "#C62828" },
-    medium: { bg: "#FFF8E1", text: "#F57F17" },
-    low: { bg: "#E8F5E9", text: "#2E7D32" },
+    high: { bg: "rgba(255,107,107,0.08)", text: "var(--color-error)" },
+    medium: { bg: "rgba(253,203,110,0.12)", text: "var(--color-warning)" },
+    low: { bg: "rgba(0,184,148,0.08)", text: "var(--color-success)" },
   };
   const c = colors[priority] ?? colors.low;
   return (
@@ -70,7 +70,7 @@ export default function JDMatch() {
       {/* Header */}
       <header
         className="flex items-center px-4 md:px-8 py-3 md:py-4 border-b shrink-0"
-        style={{ borderColor: "var(--color-border)", background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)" }}
+        style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", backdropFilter: "var(--backdrop)" }}
       >
         <span
           className="text-base font-bold gradient-text cursor-pointer"
@@ -142,7 +142,7 @@ export default function JDMatch() {
           {error && (
             <div
               className="px-4 py-3 rounded-lg text-sm mb-6"
-              style={{ background: "#FDEDED", color: "#C62828", border: "1px solid #FFCDD2" }}
+              style={{ background: "rgba(255,107,107,0.08)", color: "var(--color-error)", border: "1px solid rgba(255,107,107,0.2)" }}
             >
               {error}
             </div>
@@ -157,10 +157,10 @@ export default function JDMatch() {
                   className="text-6xl font-bold mb-2"
                   style={{
                     color: result.score >= 70
-                      ? "#00B894"
+                      ? "var(--color-success)"
                       : result.score >= 40
-                        ? "#FDCB6E"
-                        : "#E91E63",
+                        ? "var(--color-warning)"
+                        : "var(--color-lavender)",
                   }}
                 >
                   {result.score}%
@@ -173,7 +173,7 @@ export default function JDMatch() {
               {/* Matched */}
               {result.matched.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-medium mb-3" style={{ color: "#00B894" }}>
+                  <h3 className="text-sm font-medium mb-3" style={{ color: "var(--color-success)" }}>
                     {i.jdMatchMastered} ({result.matched.length})
                   </h3>
                   <SkillList skills={result.matched} icon={"\u2705"} />
@@ -183,7 +183,7 @@ export default function JDMatch() {
               {/* Learning */}
               {result.learning.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-medium mb-3" style={{ color: "#F39C12" }}>
+                  <h3 className="text-sm font-medium mb-3" style={{ color: "var(--color-warning)" }}>
                     {i.jdMatchLearning} ({result.learning.length})
                   </h3>
                   <SkillList skills={result.learning} icon={"\u26A0\uFE0F"} />
@@ -193,7 +193,7 @@ export default function JDMatch() {
               {/* Missing */}
               {result.missing.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-medium mb-3" style={{ color: "#E91E63" }}>
+                  <h3 className="text-sm font-medium mb-3" style={{ color: "var(--color-lavender)" }}>
                     {i.jdMatchMissing} ({result.missing.length})
                   </h3>
                   <SkillList skills={result.missing} icon={"\u274C"} />

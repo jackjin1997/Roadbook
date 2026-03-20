@@ -23,7 +23,7 @@ export default function ConfirmDialog({ open, title, message, confirmLabel = "De
           </button>
           <button onClick={onConfirm}
             className="text-xs px-4 py-2 rounded-lg transition-colors"
-            style={{ background: "#dc2626", color: "#fff", border: "none" }}>
+            style={{ background: "var(--color-error)", color: "var(--color-surface)", border: "none" }}>
             {confirmLabel}
           </button>
         </div>

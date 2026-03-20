@@ -6,8 +6,8 @@ import type { SkillIndexEntry } from "../api";
 
 
 const CATEGORY_COLORS = [
-  "#6C5CE7", "#00B894", "#E17055", "#0984E3", "#D63031",
-  "#FDCB6E", "#A29BFE", "#00CEC9", "#E84393", "#636E72",
+  "var(--color-cherry)", "var(--color-teal)", "var(--color-lavender)", "var(--color-hotpink)", "var(--color-electric)",
+  "var(--color-sky)", "var(--color-lime)", "var(--color-coral)", "var(--color-peach)", "var(--color-gold)",
 ];
 
 function categoryColor(categories: string[], cat: string): string {
@@ -16,8 +16,8 @@ function categoryColor(categories: string[], cat: string): string {
 }
 
 const STATUS_STYLE: Record<string, { bg: string; label: string }> = {
-  mastered: { bg: "rgba(0,184,148,0.15)", label: "Mastered" },
-  learning: { bg: "rgba(253,203,110,0.15)", label: "Learning" },
+  mastered: { bg: "color-mix(in srgb, var(--color-success) 15%, transparent)", label: "Mastered" },
+  learning: { bg: "color-mix(in srgb, var(--color-warning) 15%, transparent)", label: "Learning" },
   not_started: { bg: "transparent", label: "Not Started" },
 };
 
@@ -84,16 +84,16 @@ export default function SkillRadar() {
               <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "var(--color-border)" }}>
                 <div className="h-full flex">
                   {mastered > 0 && (
-                    <div style={{ width: `${(mastered / totalSkills) * 100}%`, background: "#00B894" }} />
+                    <div style={{ width: `${(mastered / totalSkills) * 100}%`, background: "var(--color-success)" }} />
                   )}
                   {learning > 0 && (
-                    <div style={{ width: `${(learning / totalSkills) * 100}%`, background: "#FDCB6E" }} />
+                    <div style={{ width: `${(learning / totalSkills) * 100}%`, background: "var(--color-warning)" }} />
                   )}
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-3 md:gap-4 text-xs" style={{ color: "var(--color-text-muted)" }}>
-                <span><span className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: "#00B894" }} />{mastered} mastered</span>
-                <span><span className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: "#FDCB6E" }} />{learning} learning</span>
+                <span><span className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: "var(--color-success)" }} />{mastered} mastered</span>
+                <span><span className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: "var(--color-warning)" }} />{learning} learning</span>
                 <span><span className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: "var(--color-border)" }} />{totalSkills - mastered - learning} pending</span>
               </div>
             </div>
@@ -113,7 +113,7 @@ export default function SkillRadar() {
                     className="text-xs px-2.5 py-1.5 capitalize transition-colors"
                     style={{
                       background: filter === f ? "var(--color-accent)" : "var(--color-surface)",
-                      color: filter === f ? "#fff" : "var(--color-text-muted)",
+                      color: filter === f ? "var(--color-surface)" : "var(--color-text-muted)",
                     }}>
                     {f === "all" ? "All" : f === "not_started" ? "Pending" : f.charAt(0).toUpperCase() + f.slice(1)}
                   </button>
@@ -135,12 +135,12 @@ export default function SkillRadar() {
                       className="rounded-xl px-3 py-2.5 transition-colors"
                       style={{
                         background: STATUS_STYLE[skill.status]?.bg || "transparent",
-                        border: `1px solid ${skill.status === "mastered" ? "rgba(0,184,148,0.3)" : skill.status === "learning" ? "rgba(253,203,110,0.3)" : "var(--color-border)"}`,
+                        border: `1px solid ${skill.status === "mastered" ? "color-mix(in srgb, var(--color-success) 30%, transparent)" : skill.status === "learning" ? "color-mix(in srgb, var(--color-warning) 30%, transparent)" : "var(--color-border)"}`,
                       }}>
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-sm font-medium" style={{ color: "var(--color-text)" }}>{skill.name}</span>
                         {skill.priority === "high" && (
-                          <span className="text-[9px] px-1 py-0.5 rounded" style={{ background: "rgba(214,48,49,0.15)", color: "#D63031" }}>high</span>
+                          <span className="text-[9px] px-1 py-0.5 rounded" style={{ background: "color-mix(in srgb, var(--color-error) 8%, transparent)", color: "var(--color-error)" }}>high</span>
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 flex-wrap">

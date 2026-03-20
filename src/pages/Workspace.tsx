@@ -31,6 +31,7 @@ import ResizeHandle from "../components/ResizeHandle";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useToast } from "../contexts/ToastContext";
+import { useTheme } from "../contexts/ThemeContext";
 import { t, LANGUAGES } from "../i18n";
 
 // Markdown renderer with mermaid diagram support
@@ -200,6 +201,7 @@ export default function WorkspacePage() {
   const resizeChat = useCallback((delta: number) => setChatWidth((w) => Math.max(260, Math.min(600, w - delta))), []);
   const { language, setLanguage } = useLanguage();
   const toast = useToast();
+  const { theme } = useTheme();
   const i = t(language);
 
   // Confirm delete state
@@ -432,10 +434,10 @@ export default function WorkspacePage() {
   }
 
   return (
-    <div className="flex flex-col h-screen" style={{ background: "#FAFAFA" }}>
+    <div className="flex flex-col h-screen" style={{ background: "var(--color-bg)" }}>
       {/* Header */}
-      <header className="flex items-center gap-2 px-3 md:px-5 py-2.5 md:py-3 border-b shrink-0" style={{ borderColor: "var(--color-border)", background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)" }}>
-        <button onClick={() => navigate("/")} className="text-xs font-bold shrink-0" style={{ fontFamily: "'JetBrains Mono', 'SF Mono', monospace", letterSpacing: "0.12em", color: "#1a1a1a", textTransform: "uppercase" as const }}>ROADBOOK</button>
+      <header className="flex items-center gap-2 px-3 md:px-5 py-2.5 md:py-3 border-b shrink-0" style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", backdropFilter: "var(--backdrop)" }}>
+        <button onClick={() => navigate("/")} className="text-xs font-bold shrink-0 gradient-text" style={{ fontFamily: "'JetBrains Mono', 'SF Mono', monospace", letterSpacing: "0.12em", textTransform: "uppercase" as const }}>ROADBOOK</button>
         <span style={{ color: "var(--color-border)" }}>/</span>
         {editingTitle ? (
           <input ref={titleInputRef} value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)}
@@ -530,7 +532,7 @@ export default function WorkspacePage() {
                   style={{ background: "var(--color-bg)", border: `1px solid ${isUrl(sourceDraft) ? "var(--color-accent)" : "var(--color-border)"}`, color: "var(--color-text)", height: 90 }}
                   placeholder={i.pasteHint} value={sourceDraft} onChange={(e) => setSourceDraft(e.target.value)} />
                 {isUrl(sourceDraft) && (
-                  <span className="absolute top-1.5 right-2 text-[9px] font-medium px-1.5 py-0.5 rounded" style={{ background: "var(--color-accent)", color: "#fff" }}>URL</span>
+                  <span className="absolute top-1.5 right-2 text-[9px] font-medium px-1.5 py-0.5 rounded" style={{ background: "var(--color-accent)", color: "var(--color-bg)" }}>URL</span>
                 )}
               </div>
               <div className="flex gap-2 mt-2">
@@ -571,7 +573,7 @@ export default function WorkspacePage() {
                 }}>
                 {tab === "journey" ? "Journey" : "Source"}
                 {tab === "journey" && workspace.roadmap && (
-                  <span className="ml-1 text-[9px] px-1 py-0.5 rounded" style={{ background: "var(--color-accent)", color: "#fff" }}>✓</span>
+                  <span className="ml-1 text-[9px] px-1 py-0.5 rounded" style={{ background: "var(--color-accent)", color: "var(--color-bg)" }}>✓</span>
                 )}
               </button>
             ))}
@@ -581,7 +583,7 @@ export default function WorkspacePage() {
                 className="ml-auto text-xs px-2.5 py-1 rounded-lg transition-colors"
                 style={{
                   background: digestMode ? "var(--color-accent)" : "var(--color-surface-hover)",
-                  color: digestMode ? "#fff" : "var(--color-text-muted)",
+                  color: digestMode ? "var(--color-bg)" : "var(--color-text-muted)",
                 }}>
                 {digestMode ? "Cancel Digest" : "Digest →"}
               </button>
@@ -598,7 +600,7 @@ export default function WorkspacePage() {
           {/* Failed skills notice */}
           {failedSkillsNotice && (
             <div className="mx-4 mt-2 px-3 py-2 rounded-lg text-xs flex items-center justify-between"
-              style={{ background: "rgba(255,180,50,0.12)", color: "var(--color-text-muted)", border: "1px solid rgba(255,180,50,0.25)" }}>
+              style={{ background: "color-mix(in srgb, var(--color-warning) 12%, transparent)", color: "var(--color-text-muted)", border: "1px solid color-mix(in srgb, var(--color-warning) 25%, transparent)" }}>
               <span>{failedSkillsNotice.length} skill(s) had no research results: {failedSkillsNotice.join(", ")}</span>
               <button onClick={() => setFailedSkillsNotice(null)} className="ml-2 opacity-60 hover:opacity-100" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14 }}>×</button>
             </div>
@@ -622,10 +624,11 @@ export default function WorkspacePage() {
                           const { skillProgress: updated } = await updateSkillProgress(workspace.id, name, status);
                           setWorkspace((w) => w ? { ...w, skillProgress: updated } : w);
                         }}
+                        theme={theme}
                       />
                       <GraphFloatingToolbar
                         title="Graph Relationship Visualization"
-                        badge={<span className="text-[10px] px-2 py-0.5 rounded" style={{ background: "#F5F5F5", color: "#888", border: "1px solid #E0E0E0" }}>{selectedSource.roadmap.skillTree.length} nodes</span>}
+                        badge={<span className="text-[10px] px-2 py-0.5 rounded" style={{ background: "var(--color-surface-hover)", color: "var(--color-text-dim)", border: "1px solid var(--color-border)" }}>{selectedSource.roadmap.skillTree.length} nodes</span>}
                         view={sourceView} onViewChange={setSourceView}
                         onExport={() => downloadMarkdown(selectedSource.roadmap!.markdown, selectedSource.reference || "roadbook")}
                         onRegenerate={() => handleGenerate(selectedSource.id)}
@@ -690,6 +693,7 @@ export default function WorkspacePage() {
                         const { skillProgress: updated } = await updateSkillProgress(workspace.id, name, status);
                         setWorkspace((w) => w ? { ...w, skillProgress: updated } : w);
                       }}
+                      theme={theme}
                     />
                     <GraphFloatingToolbar
                       title="Graph Relationship Visualization"
@@ -698,7 +702,7 @@ export default function WorkspacePage() {
                         const mastered = workspace.roadmap.skillTree!.filter((s) => resolveSkillStatus(workspace.skillProgress[s.name]) === "mastered").length;
                         const learning = workspace.roadmap.skillTree!.filter((s) => resolveSkillStatus(workspace.skillProgress[s.name]) === "learning").length;
                         if (mastered === 0 && learning === 0) return undefined;
-                        return <span className="text-[10px] px-2 py-0.5 rounded" style={{ background: "#F5F5F5", color: "#888", border: "1px solid #E0E0E0" }}>{mastered}/{total} mastered{learning > 0 ? ` · ${learning} learning` : ""}</span>;
+                        return <span className="text-[10px] px-2 py-0.5 rounded" style={{ background: "var(--color-surface-hover)", color: "var(--color-text-dim)", border: "1px solid var(--color-border)" }}>{mastered}/{total} mastered{learning > 0 ? ` · ${learning} learning` : ""}</span>;
                       })()}
                       view={journeyView} onViewChange={setJourneyView}
                       onExport={() => downloadMarkdown(workspace.roadmap!.markdown, workspace.title || "journey")}
@@ -711,7 +715,7 @@ export default function WorkspacePage() {
                   <div className="px-4 md:px-10 py-6 md:py-8 max-w-3xl mx-auto">
                     <div className="flex items-center justify-between mb-8">
                       <div className="flex items-center gap-3">
-                        <p className="text-xs" style={{ color: "#888", opacity: 0.6 }}>
+                        <p className="text-xs" style={{ color: "var(--color-text-dim)", opacity: 0.6 }}>
                           Journey · {formatDate(workspace.roadmap.generatedAt)}
                         </p>
                       </div>
@@ -841,8 +845,8 @@ export default function WorkspacePage() {
                   <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                     <div className="text-xs max-w-[88%] leading-relaxed"
                       style={msg.role === "user"
-                        ? { background: "#1a1a1a", color: "#fff", borderRadius: "14px 14px 3px 14px", padding: "8px 14px" }
-                        : { background: "#fff", color: "#333", border: "1px solid #E0E0E0", borderRadius: "14px 14px 14px 3px", padding: "8px 14px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+                        ? { background: "var(--color-accent)", color: "var(--color-bg)", borderRadius: "14px 14px 3px 14px", padding: "8px 14px" }
+                        : { background: "var(--color-surface)", color: "var(--color-text)", border: "1px solid var(--color-border)", borderRadius: "14px 14px 14px 3px", padding: "8px 14px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
                       <div className="prose prose-xs max-w-none">
                         <Markdown remarkPlugins={[remarkGfm]} components={mdComponents}>{msg.content}</Markdown>
                       </div>
@@ -907,17 +911,17 @@ export default function WorkspacePage() {
 
 // ── Shared UI components ─────────────────────────────────────────────────────
 
-const toolbarBtnStyle = { border: "1px solid #E0E0E0", color: "#888", background: "#fff" } as const;
+const toolbarBtnStyle = { border: "1px solid var(--color-border)", color: "var(--color-text-dim)", background: "var(--color-surface)" } as const;
 
 function ViewToggle({ current, onChange }: { current: "prose" | "graph"; onChange: (v: "prose" | "graph") => void }) {
   return (
-    <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid #E0E0E0" }}>
+    <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--color-border)" }}>
       {(["graph", "prose"] as const).map((v) => (
         <button key={v} onClick={() => onChange(v)}
           className="text-xs px-3 py-1.5 transition-colors"
           style={{
-            background: current === v ? "#1a1a1a" : "#fff",
-            color: current === v ? "#fff" : "#888",
+            background: current === v ? "var(--color-accent)" : "var(--color-surface)",
+            color: current === v ? "var(--color-bg)" : "var(--color-text-dim)",
             fontWeight: current === v ? 600 : 400,
           }}>
           {v === "prose" ? "Prose" : "Graph"}
@@ -941,11 +945,11 @@ function GraphFloatingToolbar({ title, badge, view, onViewChange, onExport, onRe
       position: "absolute", top: 0, left: 0, right: 0, zIndex: 15,
       padding: "12px 16px",
       display: "flex", justifyContent: "space-between", alignItems: "center",
-      background: "linear-gradient(to bottom, rgba(255,255,255,0.95), rgba(255,255,255,0))",
+      background: "linear-gradient(to bottom, var(--color-bg), transparent)",
       pointerEvents: "none",
     }}>
       <div className="flex items-center gap-3" style={{ pointerEvents: "auto" }}>
-        <span style={{ fontSize: 14, fontWeight: 600, color: "#333" }}>{title}</span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text)" }}>{title}</span>
         {badge}
       </div>
       <div className="flex items-center gap-2" style={{ pointerEvents: "auto" }}>
@@ -998,13 +1002,13 @@ function DigestableRoadmap({ markdown, digestedIds, checkedIds, onToggle }: {
             <div className="flex items-center gap-2 mb-2">
               <div className="w-4 h-4 rounded flex items-center justify-center shrink-0 text-[10px]"
                 style={{
-                  background: digested ? "#10b981" : checked ? "var(--color-accent)" : "var(--color-border)",
-                  color: "#fff",
+                  background: digested ? "var(--color-success)" : checked ? "var(--color-accent)" : "var(--color-border)",
+                  color: "var(--color-bg)",
                 }}>
                 {digested ? "✓" : checked ? "✓" : ""}
               </div>
               <span className={`text-xs ${isSubsection ? "" : "font-semibold"}`} style={{ color: "var(--color-text)" }}>{section.heading}</span>
-              {digested && <span className="text-[9px] ml-auto" style={{ color: "#10b981" }}>digested</span>}
+              {digested && <span className="text-[9px] ml-auto" style={{ color: "var(--color-success)" }}>digested</span>}
             </div>
             <div className="prose prose-xs max-w-none" style={{ pointerEvents: "none" }}>
               <Markdown remarkPlugins={[remarkGfm]}>{section.content}</Markdown>
@@ -1045,7 +1049,7 @@ function InsightPanel({ insights, draft, onDraftChange, onAdd, onDelete }: {
             <button onClick={() => onDelete(ins.id)}
               className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-xs transition-opacity"
               style={{ color: "var(--color-text-muted)" }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "#f87171")}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-error)")}
               onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-text-muted)")}>×</button>
           </div>
         ))}
@@ -1077,7 +1081,7 @@ function ResearchPanel({ todos, sources, draft, onDraftChange, onAdd, onDelete, 
   runningId: string | null;
   onSelectSource: (id: string) => void;
 }) {
-  const statusColor = { pending: "var(--color-text-muted)", "in-progress": "#f59e0b", done: "#10b981" };
+  const statusColor = { pending: "var(--color-text-muted)", "in-progress": "var(--color-warning)", done: "var(--color-success)" };
 
   return (
     <>
@@ -1116,7 +1120,7 @@ function ResearchPanel({ todos, sources, draft, onDraftChange, onAdd, onDelete, 
                   <button onClick={() => onDelete(todo.id)}
                     className="opacity-0 group-hover:opacity-100 text-xs transition-opacity"
                     style={{ color: "var(--color-text-muted)" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = "#f87171")}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-error)")}
                     onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-text-muted)")}>×</button>
                 </div>
               </div>
@@ -1193,12 +1197,12 @@ function SourceItem({ source, selected, checked, generating, digestStatus, onSel
           <button onClick={(e) => { e.stopPropagation(); onDelete(); }}
             className="opacity-0 group-hover:opacity-100 text-xs shrink-0 mt-0.5 transition-opacity"
             style={{ color: "var(--color-text-muted)" }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "#f87171")}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-error)")}
             onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-text-muted)")}>×</button>
         </div>
         <div className="flex items-center justify-between mt-1.5 pl-5">
           {source.roadmap ? (
-            <span className="text-[10px] font-medium flex items-center gap-1" style={{ color: "#10b981" }}>
+            <span className="text-[10px] font-medium flex items-center gap-1" style={{ color: "var(--color-success)" }}>
               <span style={{ opacity: 0.7 }}>{digestStatus}</span>
               <span style={{ opacity: 0.6 }}>{i.roadmapReady}</span>
             </span>

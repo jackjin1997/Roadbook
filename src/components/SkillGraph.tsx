@@ -4,17 +4,51 @@ import type { SkillNode, SkillStatus, SkillProgressEntry } from "../types";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const CATEGORY_COLORS = [
-  "#FF6B35", "#004E89", "#7B2D8E", "#1A936F", "#C5283D",
-  "#E9724C", "#3498db", "#9b59b6", "#27ae60", "#f39c12",
-];
+const GRAPH_THEMES = {
+  dark: {
+    categoryColors: ["#FF6B6B","#4ECDC4","#A78BFA","#FF9FF3","#6C5CE7","#74B9FF","#55EFC4","#FF7675","#FFEAA7","#FFE66D"],
+    highlight: "#A78BFA",
+    statusColors: { not_started: "transparent", learning: "#FFE66D", mastered: "#55EFC4" } as Record<string, string>,
+    ringFills: ["rgba(108,92,231,0.08)","rgba(108,92,231,0.04)","rgba(255,255,255,0.02)"],
+    labelColor: "#F0F0F5",
+    labelMuted: "#9090A8",
+    linkStroke: "rgba(255,255,255,0.12)",
+    linkStrokeSub: "rgba(255,255,255,0.08)",
+    nodeStroke: "rgba(255,255,255,0.2)",
+    edgeLabelBg: "rgba(10,10,18,0.85)",
+    edgeLabelColor: "#9090A8",
+    legendBg: "rgba(10,10,18,0.85)",
+    legendBorder: "rgba(255,255,255,0.08)",
+    legendText: "#9090A8",
+    pendingFill: "rgba(255,255,255,0.08)",
+    pendingStroke: "rgba(255,255,255,0.15)",
+    background: "#0A0A12",
+  },
+  light: {
+    categoryColors: ["#FF8A80","#5CD6C8","#B39DDB","#F8BBD0","#9575CD","#81D4FA","#69F0AE","#FFAB91","#FFE0B2","#FFD54F"],
+    highlight: "#9575CD",
+    statusColors: { not_started: "transparent", learning: "#FFD54F", mastered: "#69F0AE" } as Record<string, string>,
+    ringFills: ["rgba(149,117,205,0.06)","rgba(149,117,205,0.03)","rgba(200,160,100,0.02)"],
+    labelColor: "#2D2016",
+    labelMuted: "#9E8B76",
+    linkStroke: "rgba(200,160,100,0.2)",
+    linkStrokeSub: "rgba(200,160,100,0.15)",
+    nodeStroke: "rgba(255,255,255,0.7)",
+    edgeLabelBg: "rgba(255,251,245,0.92)",
+    edgeLabelColor: "#9E8B76",
+    legendBg: "rgba(255,251,245,0.95)",
+    legendBorder: "rgba(200,160,100,0.15)",
+    legendText: "#9E8B76",
+    pendingFill: "#FFF3E8",
+    pendingStroke: "#E8D5C0",
+    background: "#FFFBF5",
+  },
+};
 
-const HIGHLIGHT = "#E91E63";
+type GraphTheme = typeof GRAPH_THEMES.dark;
+
 const TRANSITION_MS = 250;
 
-const STATUS_COLORS: Record<SkillStatus, string> = {
-  not_started: "transparent", learning: "#FDCB6E", mastered: "#00B894",
-};
 const NEXT_STATUS: Record<SkillStatus, SkillStatus> = {
   not_started: "learning", learning: "mastered", mastered: "not_started",
 };
@@ -25,12 +59,6 @@ function resolveStatus(val: SkillStatus | SkillProgressEntry | undefined): Skill
   if (typeof val === "string") return val;
   return val.status;
 }
-
-const RING_FILLS = [
-  "rgba(233,30,99,0.06)",   // ring 0 — high (center)
-  "rgba(233,30,99,0.03)",   // ring 1 — medium
-  "rgba(0,0,0,0.015)",      // ring 2 — low (outer)
-];
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,8 +83,8 @@ interface GraphLink extends d3.SimulationLinkDatum<GraphNode> {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function categoryColor(categories: string[], cat: string): string {
-  return CATEGORY_COLORS[categories.indexOf(cat) % CATEGORY_COLORS.length];
+function categoryColor(categories: string[], cat: string, colors: GraphTheme): string {
+  return colors.categoryColors[categories.indexOf(cat) % colors.categoryColors.length];
 }
 
 function linkNodeId(end: string | number | GraphNode): string {
@@ -69,8 +97,8 @@ function nodeStrokeWidth(d: GraphNode): number {
   return d.kind === "sub" ? 1.5 : d.priority === "high" ? 3.5 : 2.5;
 }
 
-function defaultLinkStroke(d: GraphLink): string {
-  return d.type === "sub" ? "#bbb" : "#C0C0C0";
+function defaultLinkStroke(d: GraphLink, colors: GraphTheme): string {
+  return d.type === "sub" ? colors.linkStrokeSub : colors.linkStroke;
 }
 
 function defaultLinkOpacity(d: GraphLink): number {
@@ -194,9 +222,11 @@ interface SkillGraphProps {
   onStatusChange?: (skillName: string, status: SkillStatus) => void;
   /** Optional per-node opacity override (e.g. for skill decay). */
   nodeOpacity?: (skillName: string) => number;
+  theme?: "dark" | "light";
 }
 
-export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, nodeOpacity }: SkillGraphProps) {
+export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, nodeOpacity, theme }: SkillGraphProps) {
+  const colors = GRAPH_THEMES[theme ?? "dark"];
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
@@ -256,24 +286,16 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove();
 
-    // Dot grid pattern
-    svg.append("defs").append("pattern")
-      .attr("id", "dot-grid").attr("width", 24).attr("height", 24)
-      .attr("patternUnits", "userSpaceOnUse")
-      .append("circle").attr("cx", 12).attr("cy", 12).attr("r", 1).attr("fill", "#D0D0D0");
-
     // Background
-    svg.append("rect").attr("width", width).attr("height", height).attr("fill", "#FAFAFA")
+    svg.append("rect").attr("width", width).attr("height", height).attr("fill", colors.background)
       .on("click", () => {
         handleBackgroundClick();
-        mainGroup.selectAll(".node-circle").transition().duration(TRANSITION_MS).attr("stroke", "#fff");
+        mainGroup.selectAll(".node-circle").transition().duration(TRANSITION_MS).attr("stroke", colors.nodeStroke);
         linkPath.transition().duration(TRANSITION_MS)
-          .attr("stroke", (d: GraphLink) => defaultLinkStroke(d))
+          .attr("stroke", (d: GraphLink) => defaultLinkStroke(d, colors))
           .attr("stroke-opacity", (d: GraphLink) => defaultLinkOpacity(d));
         node.transition().duration(TRANSITION_MS).style("opacity", 1);
       });
-    svg.append("rect").attr("width", width).attr("height", height).attr("fill", "url(#dot-grid)")
-      .style("pointer-events", "none");
 
     const mainGroup = svg.append("g");
 
@@ -288,20 +310,20 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
     const ringLabels = ["High", "Medium", "Low"];
     for (let i = ringRadii.length - 1; i >= 0; i--) {
       ringGroup.append("circle").attr("cx", cx).attr("cy", cy).attr("r", ringRadii[i])
-        .attr("fill", RING_FILLS[i]).attr("stroke", "none");
+        .attr("fill", colors.ringFills[i]).attr("stroke", "none");
       ringGroup.append("circle").attr("cx", cx).attr("cy", cy).attr("r", ringRadii[i])
         .attr("fill", "none")
-        .attr("stroke", i === 0 ? "rgba(233,30,99,0.15)" : "rgba(0,0,0,0.05)")
+        .attr("stroke", i === 0 ? colors.highlight : colors.linkStroke)
         .attr("stroke-width", i === 0 ? 2 : 1)
         .attr("stroke-dasharray", i === 0 ? "none" : "4,4");
       ringGroup.append("text")
         .attr("x", cx + ringRadii[i] - 6).attr("y", cy - 6)
-        .attr("fill", i === 0 ? "rgba(233,30,99,0.3)" : "rgba(0,0,0,0.12)")
+        .attr("fill", colors.labelMuted)
         .attr("font-size", 9).attr("font-weight", 600).attr("text-anchor", "end")
         .text(ringLabels[i]);
     }
     ringGroup.append("circle").attr("cx", cx).attr("cy", cy).attr("r", 4)
-      .attr("fill", HIGHLIGHT).attr("opacity", 0.3);
+      .attr("fill", colors.highlight).attr("opacity", 0.3);
 
     // ── Force simulation ─────────────────────────────────────────────────────
 
@@ -327,7 +349,7 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
     const linkPath = linkGroup.selectAll<SVGPathElement, GraphLink>("path")
       .data(links).join("path")
       .attr("fill", "none")
-      .attr("stroke", defaultLinkStroke)
+      .attr("stroke", (d) => defaultLinkStroke(d, colors))
       .attr("stroke-width", (d) => {
         if (d.type === "sub") return 1;
         const src = typeof d.source === "string" ? nodes.find((n) => n.id === d.source) : d.source as GraphNode;
@@ -343,10 +365,10 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
       .join("g").attr("class", "edge-label")
       .style("display", showEdgeLabels ? "block" : "none");
 
-    edgeLabelGroup.append("rect").attr("rx", 3).attr("ry", 3).attr("fill", "rgba(255,255,255,0.92)");
+    edgeLabelGroup.append("rect").attr("rx", 3).attr("ry", 3).attr("fill", colors.edgeLabelBg);
     edgeLabelGroup.append("text")
       .text((d) => d.label ?? "").attr("text-anchor", "middle").attr("dy", "0.35em")
-      .attr("font-size", 8).attr("fill", "#888").attr("pointer-events", "none")
+      .attr("font-size", 8).attr("fill", colors.edgeLabelColor).attr("pointer-events", "none")
       .style("font-family", "system-ui, sans-serif");
 
     edgeLabelGroup.each(function () {
@@ -389,8 +411,8 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
     // Main circle
     node.append("circle").attr("class", "node-circle")
       .attr("r", (d) => d.radius)
-      .attr("fill", (d) => categoryColor(categories, d.category))
-      .attr("stroke", "#fff")
+      .attr("fill", (d) => categoryColor(categories, d.category, colors))
+      .attr("stroke", colors.nodeStroke)
       .attr("stroke-width", nodeStrokeWidth)
       .attr("opacity", (d) => {
         const base = d.kind === "sub" ? 0.65 : d.priority === "low" ? 0.8 : 1;
@@ -411,7 +433,7 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
         el.append("text").attr("class", "expand-indicator")
           .text(expandedIds.has(d.id) ? "−" : "+")
           .attr("x", -d.radius - 2).attr("y", -d.radius - 2)
-          .attr("font-size", 11).attr("font-weight", 700).attr("fill", "#888")
+          .attr("font-size", 11).attr("font-weight", 700).attr("fill", colors.labelMuted)
           .attr("text-anchor", "middle").attr("pointer-events", "none")
           .style("font-family", "system-ui");
       }
@@ -420,7 +442,7 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
     // Status ring
     node.append("circle").attr("class", "status-ring")
       .attr("r", (d) => d.radius + 3).attr("fill", "none")
-      .attr("stroke", (d) => STATUS_COLORS[resolveStatus(skillProgressRef.current[d.name])])
+      .attr("stroke", (d) => colors.statusColors[resolveStatus(skillProgressRef.current[d.name])])
       .attr("stroke-width", 2)
       .attr("stroke-opacity", (d) => {
         const s = resolveStatus(skillProgressRef.current[d.name]);
@@ -431,7 +453,7 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
     node.append("text")
       .text((d) => d.name.length > 18 ? d.name.substring(0, 18) + "…" : d.name)
       .attr("dx", (d) => d.radius + 5).attr("dy", 4)
-      .attr("fill", (d) => d.kind === "sub" ? "#888" : "#333")
+      .attr("fill", (d) => d.kind === "sub" ? colors.labelMuted : colors.labelColor)
       .attr("font-size", (d) => d.kind === "sub" ? 9 : d.priority === "high" ? 13 : d.priority === "medium" ? 11 : 10)
       .attr("font-weight", (d) => d.kind === "sub" ? 400 : d.priority === "high" ? 700 : 500)
       .attr("pointer-events", "none")
@@ -442,7 +464,7 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
     node
       .on("mouseenter", function (_, d) {
         d3.select(this).select<SVGCircleElement>(".node-circle")
-          .transition().duration(TRANSITION_MS).attr("stroke", "#333").attr("stroke-width", 3);
+          .transition().duration(TRANSITION_MS).attr("stroke", colors.labelColor).attr("stroke-width", 3);
         const connected = getConnectedIds(d.id, links);
         node.transition().duration(TRANSITION_MS).style("opacity", (n) => connected.has(n.id) ? 1 : 0.15);
         linkPath.transition().duration(TRANSITION_MS)
@@ -451,7 +473,7 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
       .on("mouseleave", function () {
         node.each(function (nd) {
           d3.select(this).select<SVGCircleElement>(".node-circle")
-            .transition().duration(TRANSITION_MS).attr("stroke", "#fff").attr("stroke-width", nodeStrokeWidth(nd));
+            .transition().duration(TRANSITION_MS).attr("stroke", colors.nodeStroke).attr("stroke-width", nodeStrokeWidth(nd));
         });
         node.transition().duration(TRANSITION_MS).style("opacity", 1);
         linkPath.transition().duration(TRANSITION_MS).attr("stroke-opacity", defaultLinkOpacity);
@@ -464,11 +486,11 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
         node.each(function (nd) {
           d3.select(this).select<SVGCircleElement>(".node-circle")
             .transition().duration(TRANSITION_MS)
-            .attr("stroke", nd.id === d.id ? HIGHLIGHT : "#fff")
+            .attr("stroke", nd.id === d.id ? colors.highlight : colors.nodeStroke)
             .attr("stroke-width", nd.id === d.id ? 4 : nodeStrokeWidth(nd));
         });
         linkPath.transition().duration(TRANSITION_MS)
-          .attr("stroke", (l) => isLinkedTo(l, d.id) ? HIGHLIGHT : defaultLinkStroke(l))
+          .attr("stroke", (l) => isLinkedTo(l, d.id) ? colors.highlight : defaultLinkStroke(l, colors))
           .attr("stroke-width", (l) => isLinkedTo(l, d.id) ? 2.5 : 1.2);
         node.transition().duration(TRANSITION_MS).style("opacity", (n) => connected.has(n.id) ? 1 : 0.15);
         setSelectedNode(d);
@@ -481,7 +503,7 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
         cb(d.name, next);
         d3.select(event.currentTarget).select(".status-ring")
           .transition().duration(TRANSITION_MS)
-          .attr("stroke", STATUS_COLORS[next])
+          .attr("stroke", colors.statusColors[next])
           .attr("stroke-opacity", next === "not_started" ? 0 : 0.8);
       });
 
@@ -509,7 +531,7 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
       }
       simulation.stop();
     };
-  }, [skillTree, dimensions, expandedIds, categories, handleBackgroundClick, showEdgeLabels, toggleExpand]);
+  }, [skillTree, dimensions, expandedIds, categories, handleBackgroundClick, showEdgeLabels, toggleExpand, colors]);
   // Note: skillProgress and onStatusChange accessed via refs to avoid full SVG rebuild
 
   // Toggle edge label visibility without re-rendering the graph
@@ -532,32 +554,32 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
       {/* Edge labels toggle */}
       <div style={{
         position: "absolute", top: 56, right: 20, display: "flex", alignItems: "center", gap: 10,
-        background: "#fff", padding: "8px 14px", borderRadius: 20,
-        border: "1px solid #E0E0E0", boxShadow: "0 2px 8px rgba(0,0,0,0.04)", zIndex: 10,
+        background: colors.legendBg, padding: "8px 14px", borderRadius: 20,
+        border: `1px solid ${colors.legendBorder}`, boxShadow: "0 2px 8px rgba(0,0,0,0.04)", zIndex: 10,
       }}>
         <label style={{ position: "relative", display: "inline-block", width: 40, height: 22, cursor: "pointer" }}>
           <input type="checkbox" checked={showEdgeLabels} onChange={(e) => setShowEdgeLabels(e.target.checked)}
             style={{ opacity: 0, width: 0, height: 0, position: "absolute" }} />
-          <span style={{ position: "absolute", cursor: "pointer", inset: 0, backgroundColor: showEdgeLabels ? "#7B2D8E" : "#E0E0E0", borderRadius: 22, transition: "0.3s" }}>
+          <span style={{ position: "absolute", cursor: "pointer", inset: 0, backgroundColor: showEdgeLabels ? colors.highlight : colors.legendBorder, borderRadius: 22, transition: "0.3s" }}>
             <span style={{ position: "absolute", height: 16, width: 16, left: showEdgeLabels ? 21 : 3, bottom: 3, backgroundColor: "white", borderRadius: "50%", transition: "0.3s" }} />
           </span>
         </label>
-        <span style={{ fontSize: 12, color: "#666" }}>Labels</span>
+        <span style={{ fontSize: 12, color: colors.legendText }}>Labels</span>
       </div>
 
       {/* Category legend */}
       <div style={{
-        position: "absolute", bottom: 24, left: 24, background: "rgba(255,255,255,0.95)",
-        padding: "12px 16px", borderRadius: 8, border: "1px solid #EAEAEA",
+        position: "absolute", bottom: 24, left: 24, background: colors.legendBg,
+        padding: "12px 16px", borderRadius: 8, border: `1px solid ${colors.legendBorder}`,
         boxShadow: "0 4px 16px rgba(0,0,0,0.06)", zIndex: 10,
       }}>
-        <span style={{ display: "block", fontSize: 11, fontWeight: 600, color: HIGHLIGHT, marginBottom: 10, textTransform: "uppercase" as const, letterSpacing: 0.5 }}>
+        <span style={{ display: "block", fontSize: 11, fontWeight: 600, color: colors.highlight, marginBottom: 10, textTransform: "uppercase" as const, letterSpacing: 0.5 }}>
           Categories
         </span>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 14px", maxWidth: 340 }}>
           {categories.map((cat) => (
-            <div key={cat} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#555" }}>
-              <span style={{ width: 10, height: 10, borderRadius: "50%", background: categoryColor(categories, cat), flexShrink: 0 }} />
+            <div key={cat} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: colors.legendText }}>
+              <span style={{ width: 10, height: 10, borderRadius: "50%", background: categoryColor(categories, cat, colors), flexShrink: 0 }} />
               <span style={{ whiteSpace: "nowrap" }}>{cat}</span>
             </div>
           ))}
@@ -566,21 +588,21 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
 
       {/* Status + hints legend */}
       <div style={{
-        position: "absolute", bottom: 24, right: 20, background: "rgba(255,255,255,0.95)",
-        padding: "10px 14px", borderRadius: 8, border: "1px solid #EAEAEA",
+        position: "absolute", bottom: 24, right: 20, background: colors.legendBg,
+        padding: "10px 14px", borderRadius: 8, border: `1px solid ${colors.legendBorder}`,
         boxShadow: "0 4px 16px rgba(0,0,0,0.06)", fontSize: 11, display: "flex", flexDirection: "column", gap: 8, zIndex: 10,
       }}>
         <div style={{ display: "flex", gap: 12 }}>
           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", border: "2px solid #FDCB6E" }} />
-            <span style={{ color: "#555" }}>Learning</span>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", border: `2px solid ${colors.statusColors.learning}` }} />
+            <span style={{ color: colors.legendText }}>Learning</span>
           </span>
           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", border: "2px solid #00B894" }} />
-            <span style={{ color: "#555" }}>Mastered</span>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", border: `2px solid ${colors.statusColors.mastered}` }} />
+            <span style={{ color: colors.legendText }}>Mastered</span>
           </span>
         </div>
-        <div style={{ color: "#999", fontSize: 10, lineHeight: 1.4 }}>
+        <div style={{ color: colors.legendText, fontSize: 10, lineHeight: 1.4 }}>
           Click to expand sub-skills &middot; Dbl-click to toggle status
         </div>
       </div>
@@ -593,6 +615,7 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
           skillProgress={skillProgress}
           onStatusChange={onStatusChange}
           onClose={() => setSelectedNode(null)}
+          colors={colors}
         />
       )}
     </div>
@@ -601,12 +624,13 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
 
 // ── Detail Panel (extracted) ─────────────────────────────────────────────────
 
-function DetailPanel({ node, categories, skillProgress, onStatusChange, onClose }: {
+function DetailPanel({ node, categories, skillProgress, onStatusChange, onClose, colors }: {
   node: GraphNode;
   categories: string[];
   skillProgress: Record<string, SkillStatus | SkillProgressEntry>;
   onStatusChange?: (name: string, status: SkillStatus) => void;
   onClose: () => void;
+  colors: GraphTheme;
 }) {
   const priorityStyle = {
     high: { bg: "#FDECEA", color: "#C62828" },
@@ -617,65 +641,65 @@ function DetailPanel({ node, categories, skillProgress, onStatusChange, onClose 
   return (
     <div style={{
       position: "absolute", top: 60, right: 12, width: "min(310px, calc(100% - 24px))", maxHeight: "calc(100% - 100px)",
-      background: "#fff", border: "1px solid #EAEAEA", borderRadius: 10,
+      background: colors.legendBg, border: `1px solid ${colors.legendBorder}`, borderRadius: 10,
       boxShadow: "0 8px 32px rgba(0,0,0,0.1)", overflow: "hidden",
       fontFamily: "system-ui, sans-serif", fontSize: 13, zIndex: 20, display: "flex", flexDirection: "column",
     }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", background: "#FAFAFA", borderBottom: "1px solid #EEE", flexShrink: 0 }}>
-        <span style={{ fontWeight: 600, color: "#333", fontSize: 14 }}>Node Details</span>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", background: colors.background, borderBottom: `1px solid ${colors.legendBorder}`, flexShrink: 0 }}>
+        <span style={{ fontWeight: 600, color: colors.labelColor, fontSize: 14 }}>Node Details</span>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ padding: "3px 10px", borderRadius: 12, fontSize: 10, fontWeight: 500, background: categoryColor(categories, node.category), color: "#fff" }}>
+          <span style={{ padding: "3px 10px", borderRadius: 12, fontSize: 10, fontWeight: 500, background: categoryColor(categories, node.category, colors), color: "#fff" }}>
             {node.category}
           </span>
-          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#999", lineHeight: 1, padding: 0 }}>×</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: colors.labelMuted, lineHeight: 1, padding: 0 }}>×</button>
         </div>
       </div>
       {/* Content */}
       <div style={{ padding: 14, overflowY: "auto", flex: 1 }}>
         <div style={{ marginBottom: 10 }}>
-          <span style={{ color: "#888", fontSize: 11, fontWeight: 500 }}>Name: </span>
-          <span style={{ color: "#333", fontWeight: 600 }}>{node.name}</span>
+          <span style={{ color: colors.labelMuted, fontSize: 11, fontWeight: 500 }}>Name: </span>
+          <span style={{ color: colors.labelColor, fontWeight: 600 }}>{node.name}</span>
         </div>
         <div style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ color: "#888", fontSize: 11, fontWeight: 500 }}>Priority: </span>
+          <span style={{ color: colors.labelMuted, fontSize: 11, fontWeight: 500 }}>Priority: </span>
           <span style={{ padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 500, background: priorityStyle.bg, color: priorityStyle.color }}>
             {node.priority}
           </span>
         </div>
         {node.description && (
           <div style={{ marginBottom: 12 }}>
-            <span style={{ display: "block", color: "#888", fontSize: 11, fontWeight: 500, marginBottom: 4 }}>Summary:</span>
-            <p style={{ margin: 0, lineHeight: 1.6, color: "#333", fontSize: 12 }}>{node.description}</p>
+            <span style={{ display: "block", color: colors.labelMuted, fontSize: 11, fontWeight: 500, marginBottom: 4 }}>Summary:</span>
+            <p style={{ margin: 0, lineHeight: 1.6, color: colors.labelColor, fontSize: 12 }}>{node.description}</p>
           </div>
         )}
         {node.subSkills.length > 0 && (
           <div style={{ marginBottom: 12 }}>
-            <span style={{ display: "block", color: "#888", fontSize: 11, fontWeight: 500, marginBottom: 6 }}>
+            <span style={{ display: "block", color: colors.labelMuted, fontSize: 11, fontWeight: 500, marginBottom: 6 }}>
               Sub-skills ({node.subSkills.length}):
             </span>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
               {node.subSkills.map((s) => (
-                <span key={s} style={{ padding: "3px 8px", borderRadius: 5, background: "#F5F5F5", fontSize: 10, color: "#555", border: "1px solid #EAEAEA" }}>{s}</span>
+                <span key={s} style={{ padding: "3px 8px", borderRadius: 5, background: colors.pendingFill, fontSize: 10, color: colors.legendText, border: `1px solid ${colors.pendingStroke}` }}>{s}</span>
               ))}
             </div>
           </div>
         )}
         {onStatusChange && (
           <div>
-            <span style={{ display: "block", color: "#888", fontSize: 11, fontWeight: 500, marginBottom: 6 }}>Status:</span>
+            <span style={{ display: "block", color: colors.labelMuted, fontSize: 11, fontWeight: 500, marginBottom: 6 }}>Status:</span>
             <div style={{ display: "flex", gap: 5 }}>
               {(["not_started", "learning", "mastered"] as SkillStatus[]).map((s) => {
                 const current = resolveStatus(skillProgress[node.name]);
                 const active = current === s;
                 const label = { not_started: "Not Started", learning: "Learning", mastered: "Mastered" }[s];
-                const clr = { not_started: "#888", learning: "#F57F17", mastered: "#2E7D32" }[s];
+                const clr = { not_started: colors.labelMuted, learning: "#F57F17", mastered: "#2E7D32" }[s];
                 return (
                   <button key={s} onClick={() => onStatusChange(node.name, s)} style={{
                     padding: "4px 12px", borderRadius: 5, fontSize: 10, fontWeight: active ? 600 : 400,
-                    border: `1.5px solid ${active ? clr : "#E0E0E0"}`,
+                    border: `1.5px solid ${active ? clr : colors.legendBorder}`,
                     background: active ? `${clr}15` : "transparent",
-                    color: active ? clr : "#bbb", cursor: "pointer", transition: "all 0.15s",
+                    color: active ? clr : colors.labelMuted, cursor: "pointer", transition: "all 0.15s",
                   }}>{label}</button>
                 );
               })}

@@ -12,7 +12,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   Frontend: "#61dafb",
   Backend: "#68d391",
   DevOps: "#f6ad55",
-  AI: "#e91e63",
+  AI: "#c084fc",
   Database: "#805ad5",
   Mobile: "#fc8181",
   Security: "#4fd1c5",
@@ -22,7 +22,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 function getCategoryColor(category: string): string {
-  return CATEGORY_COLORS[category] ?? "#E91E63";
+  return CATEGORY_COLORS[category] ?? "#c084fc";
 }
 
 // ── Radar chart SVG generation ───────────────────────────────────────────────
@@ -84,7 +84,7 @@ function RadarChart({
             cy={cy}
             r={r}
             fill="none"
-            stroke="#e0e0e0"
+            stroke="var(--color-border)"
             strokeWidth={0.5}
             strokeDasharray={i < rings - 1 ? "2,4" : "none"}
           />
@@ -101,7 +101,7 @@ function RadarChart({
         const ly = cy + labelR * Math.sin(angle);
         return (
           <g key={cat.name}>
-            <line x1={cx} y1={cy} x2={x2} y2={y2} stroke="#e0e0e0" strokeWidth={0.5} />
+            <line x1={cx} y1={cy} x2={x2} y2={y2} stroke="var(--color-border)" strokeWidth={0.5} />
             <text
               x={lx}
               y={ly}
@@ -122,8 +122,8 @@ function RadarChart({
       {categories.length >= 3 && (
         <polygon
           points={buildRadarPoints(categories, cx, cy, radius, (c) => c.total, maxValue)}
-          fill="rgba(233,30,99,0.08)"
-          stroke="#E91E63"
+          fill="rgba(192,132,252,0.08)"
+          stroke="#c084fc"
           strokeWidth={1.5}
           strokeLinejoin="round"
         />
@@ -134,7 +134,7 @@ function RadarChart({
         <polygon
           points={buildRadarPoints(categories, cx, cy, radius, (c) => c.mastered, maxValue)}
           fill="rgba(0,184,148,0.2)"
-          stroke="#00B894"
+          stroke="var(--color-success)"
           strokeWidth={1.5}
           strokeLinejoin="round"
         />
@@ -153,8 +153,8 @@ function RadarChart({
             cx={x}
             cy={y}
             r={4}
-            fill="#E91E63"
-            stroke="#fff"
+            fill="#c084fc"
+            stroke="var(--color-surface)"
             strokeWidth={2}
           />
         );
@@ -299,7 +299,7 @@ export default function ShareCard() {
       {/* Header */}
       <header
         className="flex items-center px-4 md:px-8 py-3 md:py-4 border-b shrink-0"
-        style={{ borderColor: "var(--color-border)", background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)" }}
+        style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", backdropFilter: "var(--backdrop)" }}
       >
         <span
           className="text-base font-bold gradient-text cursor-pointer"
@@ -359,7 +359,7 @@ export default function ShareCard() {
           <div
             className="rounded-2xl shadow-lg mb-6"
             style={{
-              background: "#fff",
+              background: "var(--color-surface)",
               border: "1px solid var(--color-border)",
               width: CARD_WIDTH,
               maxWidth: "100%",
@@ -374,8 +374,8 @@ export default function ShareCard() {
               style={{ display: "block", maxWidth: "100%", height: "auto" }}
             >
               {/* Background */}
-              <rect width={CARD_WIDTH} height={CARD_HEIGHT} rx={16} fill="#FAFAFA" />
-              <rect width={CARD_WIDTH} height={CARD_HEIGHT} rx={16} fill="none" stroke="#e0e0e0" strokeWidth={1} />
+              <rect width={CARD_WIDTH} height={CARD_HEIGHT} rx={16} fill="var(--color-bg)" />
+              <rect width={CARD_WIDTH} height={CARD_HEIGHT} rx={16} fill="none" stroke="var(--color-border)" strokeWidth={1} />
 
               {/* Title */}
               <text
@@ -386,7 +386,7 @@ export default function ShareCard() {
                 fontWeight={700}
                 fontFamily="'JetBrains Mono', 'SF Mono', monospace"
                 letterSpacing="0.15em"
-                fill="#1a1a1a"
+                fill="var(--color-text)"
               >
                 ROADBOOK SKILL RADAR
               </text>
@@ -397,20 +397,20 @@ export default function ShareCard() {
               {/* Stats section — shifted down to account for chart offset */}
               <g transform={`translate(0, 390)`}>
                 {/* Mastered */}
-                <circle cx={60} cy={16} r={5} fill="#00B894" />
-                <text x={72} y={20} fontSize={13} fontFamily="'JetBrains Mono', 'SF Mono', monospace" fill="#1a1a1a">
+                <circle cx={60} cy={16} r={5} fill="var(--color-success)" />
+                <text x={72} y={20} fontSize={13} fontFamily="'JetBrains Mono', 'SF Mono', monospace" fill="var(--color-text)">
                   {mastered} {i.shareCardMastered}
                 </text>
 
                 {/* Learning */}
-                <circle cx={60} cy={42} r={5} fill="none" stroke="#FDCB6E" strokeWidth={2} />
-                <text x={72} y={46} fontSize={13} fontFamily="'JetBrains Mono', 'SF Mono', monospace" fill="#1a1a1a">
+                <circle cx={60} cy={42} r={5} fill="none" stroke="var(--color-warning)" strokeWidth={2} />
+                <text x={72} y={46} fontSize={13} fontFamily="'JetBrains Mono', 'SF Mono', monospace" fill="var(--color-text)">
                   {learningCount} {i.shareCardLearning}
                 </text>
 
                 {/* Planned */}
-                <circle cx={60} cy={68} r={3} fill="#ccc" />
-                <text x={72} y={72} fontSize={13} fontFamily="'JetBrains Mono', 'SF Mono', monospace" fill="#1a1a1a">
+                <circle cx={60} cy={68} r={3} fill="var(--color-text-dim)" />
+                <text x={72} y={72} fontSize={13} fontFamily="'JetBrains Mono', 'SF Mono', monospace" fill="var(--color-text)">
                   {planned} {i.shareCardPlanned}
                 </text>
 
@@ -422,7 +422,7 @@ export default function ShareCard() {
                   fontSize={36}
                   fontWeight={700}
                   fontFamily="'JetBrains Mono', 'SF Mono', monospace"
-                  fill="#E91E63"
+                  fill="var(--color-lavender)"
                 >
                   {totalSkills}
                 </text>
@@ -432,7 +432,7 @@ export default function ShareCard() {
                   textAnchor="middle"
                   fontSize={11}
                   fontFamily="'JetBrains Mono', 'SF Mono', monospace"
-                  fill="#999"
+                  fill="var(--color-text-dim)"
                 >
                   {i.shareCardTotalSkills}
                 </text>
@@ -446,7 +446,7 @@ export default function ShareCard() {
                 fontSize={10}
                 fontFamily="'JetBrains Mono', 'SF Mono', monospace"
                 letterSpacing="0.1em"
-                fill="#bbb"
+                fill="var(--color-text-dim)"
               >
                 Generated by ROADBOOK
               </text>

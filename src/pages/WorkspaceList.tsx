@@ -8,14 +8,14 @@ import { t, LANGUAGES } from "../i18n";
 import ConfirmDialog from "../components/ConfirmDialog";
 
 const CARD_GRADIENTS = [
-  "#1a1a1a",
-  "#2c2c2c",
-  "#3a3a3a",
-  "#1a1a1a",
-  "#2c2c2c",
-  "#3a3a3a",
-  "#1a1a1a",
-  "#2c2c2c",
+  "var(--color-accent)",
+  "var(--color-lavender)",
+  "var(--color-teal)",
+  "var(--color-electric)",
+  "var(--color-sky)",
+  "var(--color-hotpink)",
+  "var(--color-coral)",
+  "var(--color-gold)",
 ];
 
 function cardGradient(id: string) {
@@ -85,7 +85,7 @@ export default function WorkspaceList() {
     <div className="min-h-screen" style={{ background: "var(--color-bg)" }}>
       <header
         className="flex items-center px-4 md:px-8 py-3 md:py-4 border-b"
-        style={{ borderColor: "var(--color-border)", background: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)" }}
+        style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", backdropFilter: "var(--backdrop)" }}
       >
         <button onClick={() => navigate("/")} className="text-base font-bold gradient-text" style={{ fontFamily: "'JetBrains Mono', 'SF Mono', monospace", letterSpacing: "0.12em" }}>ROADBOOK</button>
         <div className="ml-auto flex items-center gap-3">
@@ -208,7 +208,7 @@ function WorkspaceCard({
       }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 24px rgba(0,0,0,0.1)`;
-        (e.currentTarget as HTMLElement).style.borderColor = "#999";
+        (e.currentTarget as HTMLElement).style.borderColor = "var(--color-text-dim)";
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLElement).style.boxShadow = "0 2px 8px rgba(0,0,0,0.04)";
@@ -258,7 +258,7 @@ function WorkspaceCard({
       <button
         onClick={onMenuToggle}
         className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold transition-opacity"
-        style={{ background: "rgba(0,0,0,0.4)", color: "#fff" }}
+        style={{ background: "rgba(0,0,0,0.4)", color: "var(--color-surface)" }}
       >
         {"..."}
       </button>
@@ -275,7 +275,7 @@ function WorkspaceCard({
           <button
             onClick={onDelete}
             className="w-full text-left px-4 py-2 text-xs transition-colors hover:bg-red-500/10"
-            style={{ color: "#f87171" }}
+            style={{ color: "var(--color-error)" }}
           >
             {i.deleteJourney}
           </button>

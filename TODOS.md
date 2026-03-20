@@ -4,13 +4,8 @@ Design review conducted 2026-03-19. All items from `/plan-design-review` Pass 1-
 
 ## Priority: High
 
-### 1. Create DESIGN.md — Design System Documentation
-**What:** Extract and document all design tokens from code (colors, typography, spacing, radius, shadows, animations). Run `/design-consultation` to deepen.
-**Why:** No design system docs → new components hardcode values → style drift over time.
-**Pros:** Single source of truth for all design decisions; faster onboarding for contributors.
-**Cons:** Requires ongoing maintenance as design evolves.
-**Context:** CSS variables exist in `src/index.css` (`--color-*`) but spacing, radius, and shadows are inconsistent (6/8/10/14px radius, 3+ shadow variants). MiroFish-inspired monochrome + pink (#E91E63) aesthetic.
-**Depends on:** Nothing. Can be done first.
+### ~~1. Create DESIGN.md — Design System Documentation~~ ✅ DONE (2026-03-19)
+Completed via `/design-consultation`. DESIGN.md now defines complete "Dopamine Max" dual-mode design system (dark + light) with independent color palettes, typography (Satoshi / Plus Jakarta Sans / JetBrains Mono), spacing, motion, and component specs.
 
 ### 2. Interaction State Coverage
 **What:** Add empty/loading/error states for all components per this spec:
@@ -30,13 +25,8 @@ Design review conducted 2026-03-19. All items from `/plan-design-review` Pass 1-
 **Context:** Some states exist (Workspace list loading/empty/error) but most are bare "No items" text.
 **Depends on:** Nothing.
 
-### 3. Workspace Visual Hierarchy
-**What:** Main Panel dominant design — white background + subtle shadow (`0 1px 4px rgba(0,0,0,0.06)`), side panels use `#F8F8F8` dimmed background. Default width ratio: Sources ~18% / Main ~52% / Chat ~30%.
-**Why:** Three panels compete equally for attention; users don't know where to look first.
-**Pros:** Clear visual entry point; reduces cognitive load.
-**Cons:** Side panels feel "secondary" — may need adjustment if Chat becomes primary interaction.
-**Context:** Decision: Main Panel leads, Sources and Chat are auxiliary. Per IA review.
-**Depends on:** Nothing.
+### ~~3. Workspace Visual Hierarchy~~ — Superseded by Design Reskin (2026-03-19)
+Original spec (white bg + gray side panels) no longer applies. New DESIGN.md defines glassmorphism panels (dark) and warm cream panels (light). The "main panel leads" hierarchy principle is incorporated into the new design system.
 
 ### 4. Accessibility (WCAG AA)
 **What:**
@@ -74,13 +64,8 @@ Auto-dismisses when first source is added.
 
 ## Priority: Low
 
-### 7. Dark Mode Support
-**What:** Ensure CSS variable architecture supports theme switching. Add dark mode color palette. Toggle in header.
-**Why:** Technical learning tool users commonly expect dark mode.
-**Pros:** User preference; reduces eye strain for extended sessions.
-**Cons:** All color tokens need dual sets; graph colors need dark-mode variants; testing burden doubles.
-**Context:** Current CSS variables are a good foundation. Defer until DESIGN.md is established.
-**Depends on:** DESIGN.md (#1) — must have unified tokens before creating dark variants.
+### ~~7. Dark Mode Support~~ — Included in Design Reskin PR (2026-03-19)
+Dark mode is now the PRIMARY theme in the new Dopamine Max design system. Implementation includes dual CSS variable sets, ThemeContext with localStorage persistence, and SkillGraph dual-palette support.
 
 ## Responsive Design Notes (from Pass 6)
 
