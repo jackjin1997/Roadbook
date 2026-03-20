@@ -323,4 +323,210 @@ describe("POST /skill-match", () => {
     expect(data.missing).toEqual([]);
     expect(data.score).toBe(0);
   });
+
+  it("treats not_started user skills as missing", async () => {
+    createWorkspaceWithSkills("match-ws-ns", {
+      Docker: { status: "not_started", lastActiveAt: 1000, firstSeenAt: 500 },
+    });
+
+    mockExtractSkillTree.mockResolvedValueOnce({
+      inputType: "jd",
+      title: "Test JD",
+      skillTree: [
+        { name: "Docker", category: "Infra", subSkills: [], relatedConcepts: [], priority: "high", description: "Container" },
+      ],
+    });
+
+    const { status, data } = await api<any>("POST", "/skill-match", { text: "Need Docker" });
+    expect(status).toBe(200);
+    expect(data.matched).toEqual([]);
+    expect(data.missing).toHaveLength(1);
+  });
+
+  it("handles non-Error thrown from extractSkillTree", async () => {
+    mockExtractSkillTree.mockRejectedValueOnce("string error");
+
+    const { status, data } = await api<{ error: string }>("POST", "/skill-match", { text: "Some JD" });
+    expect(status).toBe(500);
+    expect(data.error).toContain("string error");
+  });
+});
+
+// ── GET /skill-index ──────────────────────────────────────────────────────────
+
+describe("GET /skill-index", () => {
+  afterEach(() => {
+    for (const ws of storeModule.loadAll()) {
+      storeModule.deleteWorkspace(ws.id);
+    }
+  });
+
+  it("returns empty skills when no workspaces exist", async () => {
+    const { status, data } = await api<any>("GET", "/skill-index");
+    expect(status).toBe(200);
+    expect(data.skills).toEqual([]);
+  });
+
+  it("returns skills from workspace roadmap skillTree", async () => {
+    storeModule.insertWorkspace({
+      id: "idx-ws-1",
+      title: "Index WS",
+      createdAt: 1000,
+      updatedAt: 2000,
+      roadmap: {
+        id: "r1",
+        markdown: "# Test",
+        skillTree: [
+          { name: "React", category: "Framework", subSkills: [], relatedConcepts: [], priority: "high", description: "UI" },
+        ],
+        generatedAt: 1000,
+      },
+      sources: [],
+      insights: [],
+      researchTodos: [],
+      skillProgress: {
+        React: { status: "mastered", lastActiveAt: 2000, firstSeenAt: 1000 },
+      },
+    });
+
+    const { data } = await api<any>("GET", "/skill-index");
+    expect(data.skills).toHaveLength(1);
+    expect(data.skills[0].name).toBe("React");
+    expect(data.skills[0].status).toBe("mastered");
+    expect(data.skills[0].lastActiveAt).toBe(2000);
+  });
+
+  it("aggregates skills across workspaces and keeps highest status", async () => {
+    storeModule.insertWorkspace({
+      id: "idx-ws-2a",
+      title: "WS A",
+      createdAt: 1000,
+      updatedAt: 2000,
+      roadmap: {
+        id: "r2a", markdown: "# A",
+        skillTree: [{ name: "TypeScript", category: "Language", subSkills: [], relatedConcepts: [], priority: "high", description: "Types" }],
+        generatedAt: 1000,
+      },
+      sources: [],
+      insights: [],
+      researchTodos: [],
+      skillProgress: { TypeScript: { status: "learning", lastActiveAt: 1500, firstSeenAt: 1000 } },
+    });
+    storeModule.insertWorkspace({
+      id: "idx-ws-2b",
+      title: "WS B",
+      createdAt: 1000,
+      updatedAt: 3000,
+      roadmap: {
+        id: "r2b", markdown: "# B",
+        skillTree: [{ name: "TypeScript", category: "Language", subSkills: [], relatedConcepts: [], priority: "high", description: "Types" }],
+        generatedAt: 2000,
+      },
+      sources: [],
+      insights: [],
+      researchTodos: [],
+      skillProgress: { TypeScript: { status: "mastered", lastActiveAt: 3000, firstSeenAt: 1000 } },
+    });
+
+    const { data } = await api<any>("GET", "/skill-index");
+    const ts = data.skills.find((s: any) => s.name === "TypeScript");
+    expect(ts).toBeDefined();
+    expect(ts.status).toBe("mastered");
+    expect(ts.lastActiveAt).toBe(3000);
+    expect(ts.workspaces).toHaveLength(2);
+  });
+
+  it("handles old string-format skillProgress entries", async () => {
+    storeModule.insertWorkspace({
+      id: "idx-ws-old",
+      title: "Old WS",
+      createdAt: 1000,
+      updatedAt: 2000,
+      roadmap: {
+        id: "r-old", markdown: "# Old",
+        skillTree: [{ name: "CSS", category: "Style", subSkills: [], relatedConcepts: [], priority: "medium", description: "Styling" }],
+        generatedAt: 1000,
+      },
+      sources: [],
+      insights: [],
+      researchTodos: [],
+      skillProgress: { CSS: "learning" as any },
+    });
+
+    const { data } = await api<any>("GET", "/skill-index");
+    const css = data.skills.find((s: any) => s.name === "CSS");
+    expect(css).toBeDefined();
+    expect(css.status).toBe("learning");
+    // Old string entries get auto-migrated by store.migrateSkillProgress()
+    // with lastActiveAt = ws.updatedAt, so it won't be null
+    expect(css.lastActiveAt).toBe(2000);
+  });
+
+  it("includes skills from source roadmaps", async () => {
+    storeModule.insertWorkspace({
+      id: "idx-ws-src",
+      title: "Source WS",
+      createdAt: 1000,
+      updatedAt: 2000,
+      roadmap: null,
+      sources: [{
+        id: "s1",
+        type: "text",
+        origin: "external",
+        reference: "test",
+        snapshot: "test content",
+        ingestedAt: 1000,
+        language: "English",
+        digestedSegmentIds: [],
+        roadmap: {
+          id: "sr1", markdown: "# Source",
+          skillTree: [{ name: "GraphQL", category: "API", subSkills: [], relatedConcepts: [], priority: "medium", description: "Query" }],
+          generatedAt: 1000,
+        },
+      }],
+      insights: [],
+      researchTodos: [],
+      skillProgress: { GraphQL: { status: "learning", lastActiveAt: 1500, firstSeenAt: 1000 } },
+    });
+
+    const { data } = await api<any>("GET", "/skill-index");
+    const gql = data.skills.find((s: any) => s.name === "GraphQL");
+    expect(gql).toBeDefined();
+    expect(gql.status).toBe("learning");
+  });
+});
+
+// ── GET /skill-events ─────────────────────────────────────────────────────────
+
+describe("GET /skill-events", () => {
+  afterEach(() => {
+    for (const ws of storeModule.loadAll()) {
+      storeModule.deleteWorkspace(ws.id);
+    }
+  });
+
+  it("returns events with default limit", async () => {
+    const { status, data } = await api<any>("GET", "/skill-events");
+    expect(status).toBe(200);
+    expect(data.events).toBeDefined();
+    expect(Array.isArray(data.events)).toBe(true);
+  });
+
+  it("respects limit parameter", async () => {
+    const { status, data } = await api<any>("GET", "/skill-events?limit=5");
+    expect(status).toBe(200);
+    expect(data.events).toBeDefined();
+  });
+
+  it("filters by skillName", async () => {
+    const { status, data } = await api<any>("GET", "/skill-events?skillName=React");
+    expect(status).toBe(200);
+    expect(data.events).toBeDefined();
+  });
+
+  it("filters by workspaceId", async () => {
+    const { status, data } = await api<any>("GET", "/skill-events?workspaceId=nonexistent");
+    expect(status).toBe(200);
+    expect(data.events).toEqual([]);
+  });
 });
