@@ -70,8 +70,8 @@ async function main() {
     console.error("Error: LANGSMITH_API_KEY is required");
     process.exit(1);
   }
-  if (!process.env.ANTHROPIC_API_KEY && !process.env.OPENAI_API_KEY) {
-    console.error("Error: ANTHROPIC_API_KEY or OPENAI_API_KEY is required");
+  if (!process.env.ANTHROPIC_API_KEY && !process.env.OPENAI_API_KEY && !process.env.GOOGLE_API_KEY) {
+    console.error("Error: ANTHROPIC_API_KEY, OPENAI_API_KEY, or GOOGLE_API_KEY is required");
     process.exit(1);
   }
 

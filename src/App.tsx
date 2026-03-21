@@ -9,14 +9,17 @@ import ShareCard from "./pages/ShareCard";
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/workspaces" element={<WorkspaceList />} />
-      <Route path="/workspace/:id" element={<WorkspacePage />} />
-      <Route path="/skills" element={<SkillRadar />} />
-      <Route path="/match" element={<JDMatch />} />
-      <Route path="/timeline" element={<SkillTimeline />} />
-      <Route path="/share" element={<ShareCard />} />
-    </Routes>
+    <>
+      <a href="#main-content" className="skip-nav">Skip to content</a>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/workspaces" element={<WorkspaceList />} />
+        <Route path="/workspace/:id" element={<WorkspacePage />} />
+        <Route path="/skills" element={<SkillRadar />} />
+        <Route path="/match" element={<JDMatch />} />
+        <Route path="/timeline" element={<SkillTimeline />} />
+        <Route path="/share" element={<ShareCard />} />
+      </Routes>
+    </>
   );
 }

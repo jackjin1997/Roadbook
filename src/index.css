@@ -59,8 +59,8 @@
   --color-border: rgba(200,160,100,0.15);
   --color-border-light: rgba(200,160,100,0.2);
   --color-text: #2D2016;
-  --color-text-muted: #9E8B76;
-  --color-text-dim: #C4B5A3;
+  --color-text-muted: #7A6B5A;
+  --color-text-dim: #A89880;
   --color-accent: #9575CD;
   --color-accent-hover: #7E57C2;
   --gradient-accent: linear-gradient(135deg, #FFAB91, #F8BBD0);
@@ -166,6 +166,14 @@ body > * { position: relative; z-index: 1; }
   text-decoration: none;
 }
 .skip-nav:focus { left: 0; }
+
+/* Touch targets: minimum 44x44px on mobile */
+@media (pointer: coarse) {
+  button, a, [role="button"], select, input[type="checkbox"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
 
 /* ── Brand text ───────────────────────────────────────────────────────────── */
 

@@ -63,15 +63,21 @@ export default function SkillRadar() {
         <span className="text-sm font-medium" style={{ color: "var(--color-text)" }}>Skill Radar</span>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-8">
+      <main id="main-content" className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-8">
         {loading ? (
           <div className="flex justify-center pt-32">
             <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "var(--color-accent)", borderTopColor: "transparent" }} />
           </div>
         ) : skills.length === 0 ? (
-          <div className="text-center py-32" style={{ color: "var(--color-text-muted)" }}>
-            <p className="text-lg mb-2">No skills yet</p>
+          <div className="flex flex-col items-center py-32 gap-3" style={{ color: "var(--color-text-muted)" }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.3 }}>
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+            <p className="text-lg font-medium">No skills yet</p>
             <p className="text-sm opacity-60">Generate roadmaps in your workspaces to see skills here.</p>
+            <button onClick={() => navigate("/")} className="btn-gradient px-5 py-2 rounded-lg text-sm font-medium mt-2">
+              Go to workspaces
+            </button>
           </div>
         ) : (
           <>

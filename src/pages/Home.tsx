@@ -102,6 +102,7 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "var(--color-bg)" }}>
       {/* Header */}
+      <nav aria-label="Main navigation">
       <header
         className="flex items-center px-4 md:px-8 py-3 md:py-4 border-b shrink-0"
         style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", backdropFilter: "var(--backdrop)", WebkitBackdropFilter: "var(--backdrop)" }}
@@ -167,8 +168,9 @@ export default function Home() {
           </select>
         </div>
       </header>
+      </nav>
 
-      {/* Main content */}
+      <main id="main-content">
       {loading ? (
         <div className="flex-1 flex justify-center items-center">
           <div
@@ -221,6 +223,7 @@ export default function Home() {
           </div>
         </div>
       )}
+      </main>
     </div>
   );
 }

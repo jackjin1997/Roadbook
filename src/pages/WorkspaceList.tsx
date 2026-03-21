@@ -18,10 +18,45 @@ const CARD_GRADIENTS = [
   "var(--color-gold)",
 ];
 
-function cardGradient(id: string) {
+function cardHash(id: string): number {
   let hash = 0;
   for (const c of id) hash = (hash * 31 + c.charCodeAt(0)) & 0xffffffff;
-  return CARD_GRADIENTS[Math.abs(hash) % CARD_GRADIENTS.length];
+  return Math.abs(hash);
+}
+
+function cardGradient(id: string) {
+  return CARD_GRADIENTS[cardHash(id) % CARD_GRADIENTS.length];
+}
+
+function MiniGraph({ id, skillCount }: { id: string; skillCount: number }) {
+  const h = cardHash(id);
+  const nodeCount = Math.min(Math.max(skillCount, 3), 8);
+  const nodes: { x: number; y: number; r: number; color: string }[] = [];
+  for (let i = 0; i < nodeCount; i++) {
+    const seed = (h * (i + 1) * 2654435761) & 0xffffffff;
+    nodes.push({
+      x: 20 + ((seed % 160)),
+      y: 12 + (((seed >> 8) % 56)),
+      r: 3 + ((seed >> 16) % 4),
+      color: CARD_GRADIENTS[(seed >> 4) % CARD_GRADIENTS.length],
+    });
+  }
+  const edges: [number, number][] = [];
+  for (let i = 1; i < nodes.length; i++) {
+    const parent = ((h * i * 7) >> 3) % i;
+    edges.push([parent, i]);
+  }
+  return (
+    <svg width="200" height="80" viewBox="0 0 200 80" style={{ display: "block", width: "100%", height: "100%" }}>
+      {edges.map(([a, b], i) => (
+        <line key={i} x1={nodes[a].x} y1={nodes[a].y} x2={nodes[b].x} y2={nodes[b].y}
+          stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+      ))}
+      {nodes.map((n, i) => (
+        <circle key={i} cx={n.x} cy={n.y} r={n.r} fill={n.color} opacity={0.7} />
+      ))}
+    </svg>
+  );
 }
 
 function formatDate(ts: number) {
@@ -106,7 +141,7 @@ export default function WorkspaceList() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 md:px-8 py-6 md:py-10">
+      <main id="main-content" className="max-w-6xl mx-auto px-4 md:px-8 py-6 md:py-10">
         {loading ? (
           <div className="flex justify-center pt-32">
             <div
@@ -216,10 +251,18 @@ function WorkspaceCard({
       }}
     >
       <div
-        className="h-20 w-full shrink-0 flex items-end p-3"
-        style={{ background: gradient }}
+        className="h-20 w-full shrink-0 overflow-hidden"
+        style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${gradient} 20%, var(--color-bg)), var(--color-bg))` }}
       >
-        <span className="text-2xl">{"\u{1F4DA}"}</span>
+        {ws.skillCount > 0 ? (
+          <MiniGraph id={ws.id} skillCount={ws.skillCount} />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity: 0.15 }}>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+            </svg>
+          </div>
+        )}
       </div>
 
       <div className="p-4 flex flex-col gap-2">

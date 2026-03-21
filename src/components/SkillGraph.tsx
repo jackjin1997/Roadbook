@@ -467,6 +467,11 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
 
     const node = mainGroup.append("g").attr("class", "nodes")
       .selectAll<SVGGElement, GraphNode>("g").data(nodes).join("g")
+      .attr("role", "img")
+      .attr("aria-label", (d) => {
+        const status = resolveStatus(skillProgressRef.current[d.name]);
+        return `${d.name} — ${d.category}, ${d.priority} priority, ${status}`;
+      })
       .style("cursor", "pointer")
       .call(
         d3.drag<SVGGElement, GraphNode>()
@@ -677,7 +682,7 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
 
   return (
     <div ref={containerRef} style={{ position: "relative", width: "100%", height: "100%", minHeight: 400 }}>
-      <svg ref={svgRef} width={dimensions.width} height={dimensions.height} style={{ display: "block" }} />
+      <svg ref={svgRef} width={dimensions.width} height={dimensions.height} style={{ display: "block" }} role="img" aria-label="Skill relationship graph" />
 
       {/* Edge labels toggle */}
       <div style={{

@@ -430,12 +430,17 @@ export default function WorkspacePage() {
   };
 
   if (!workspace) {
-    return <div className="flex items-center justify-center h-screen" style={{ color: "var(--color-text-muted)" }}>Loading...</div>;
+    return (
+      <div className="flex items-center justify-center h-screen" style={{ background: "var(--color-bg)" }}>
+        <div className="w-8 h-8 rounded-full border-2 animate-spin" style={{ borderColor: "var(--color-accent)", borderTopColor: "transparent" }} />
+      </div>
+    );
   }
 
   return (
     <div className="flex flex-col h-screen" style={{ background: "var(--color-bg)" }}>
       {/* Header */}
+      <nav aria-label="Workspace navigation">
       <header className="flex items-center gap-2 px-3 md:px-5 py-2.5 md:py-3 border-b shrink-0" style={{ borderColor: "var(--color-border)", background: "var(--color-surface)", backdropFilter: "var(--backdrop)" }}>
         <button onClick={() => navigate("/")} className="text-xs font-bold shrink-0 gradient-text" style={{ fontFamily: "'JetBrains Mono', 'SF Mono', monospace", letterSpacing: "0.12em", textTransform: "uppercase" as const }}>ROADBOOK</button>
         <span style={{ color: "var(--color-border)" }}>/</span>
@@ -464,6 +469,7 @@ export default function WorkspacePage() {
           </select>
         </div>
       </header>
+      </nav>
 
       {/* Mobile panel switcher */}
       <div className="mobile-panel-bar items-center border-b shrink-0" style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}>
@@ -481,7 +487,7 @@ export default function WorkspacePage() {
 
       <div className="flex flex-1 overflow-hidden" style={{ minHeight: 0 }}>
         {/* Sources panel */}
-        <div className="flex flex-col shrink-0" style={{
+        <aside aria-label="Sources" className="flex flex-col shrink-0" style={{
           width: isMobile ? "100%" : sourceWidth,
           display: isMobile && mobilePanel !== "sources" ? "none" : undefined,
           background: "var(--color-surface-dim)",
@@ -494,7 +500,13 @@ export default function WorkspacePage() {
 
           <div className="flex-1 overflow-y-auto">
             {workspace.sources.length === 0 && !showAddSource && (
-              <p className="px-3 py-6 text-xs text-center" style={{ color: "var(--color-text-muted)", opacity: 0.5 }}>{i.noSourcesYet}</p>
+              <div className="flex flex-col items-center gap-2 px-3 py-8" style={{ color: "var(--color-text-muted)" }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.35 }}>
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="12" y1="18" x2="12" y2="12" /><line x1="9" y1="15" x2="15" y2="15" />
+                </svg>
+                <p className="text-[10px] text-center opacity-60">{i.addSourceToStart}</p>
+                <button onClick={() => setShowAddSource(true)} className="btn-gradient text-[10px] px-3 py-1 rounded-lg font-medium">{i.addSource}</button>
+              </div>
             )}
             {workspace.sources.map((source) => (
               <SourceItem key={source.id} source={source}
@@ -552,12 +564,12 @@ export default function WorkspacePage() {
               </div>
             </div>
           )}
-        </div>
+        </aside>
 
         <div className="desktop-resize-handle"><ResizeHandle onResize={resizeSources} /></div>
 
         {/* Main panel */}
-        <div className="flex-1 flex flex-col overflow-hidden" style={{
+        <main id="main-content" className="flex-1 flex flex-col overflow-hidden" style={{
           background: "var(--color-surface)",
           display: isMobile && mobilePanel !== "main" ? "none" : undefined,
         }}>
@@ -611,7 +623,7 @@ export default function WorkspacePage() {
             {mainTab === "source" && (
               <>
                 {!selectedSource ? (
-                  <EmptyState i={i} onAdd={() => setShowAddSource(true)} />
+                  <EmptyState i={i} onAdd={() => setShowAddSource(true)} hasSources={workspace.sources.length > 0} />
                 ) : selectedSource.roadmap ? (
                   sourceView === "graph" && selectedSource.roadmap.skillTree && selectedSource.roadmap.skillTree.length > 0 && !digestMode ? (
                     /* ── Source full-panel graph view (MiroFish style) ── */
@@ -771,12 +783,12 @@ export default function WorkspacePage() {
               )
             )}
           </div>
-        </div>
+        </main>
 
         <div className="desktop-resize-handle"><ResizeHandle onResize={resizeChat} /></div>
 
         {/* Right panel: Chat / Insights / Research */}
-        <div className="flex flex-col shrink-0" style={{
+        <aside aria-label="Chat and tools" className="flex flex-col shrink-0" style={{
           width: isMobile ? "100%" : chatWidth,
           background: "var(--color-bg)",
           display: isMobile && mobilePanel !== "chat" ? "none" : undefined,
@@ -837,9 +849,23 @@ export default function WorkspacePage() {
               </div>
               <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
                 {chatMessages.length === 0 && (
-                  <p className="text-xs text-center mt-8" style={{ color: "var(--color-text-muted)", opacity: 0.5 }}>
-                    Ask Ariadne anything about this journey, or request roadbook changes.
-                  </p>
+                  <div className="flex flex-col items-center justify-center h-full gap-3 px-4" style={{ color: "var(--color-text-muted)" }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.4 }}>
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                    <p className="text-xs font-medium">{i.chatEmptyTitle}</p>
+                    <p className="text-[10px] opacity-60 text-center max-w-[200px]">{i.chatEmptyHint}</p>
+                    <div className="flex flex-wrap justify-center gap-1.5 mt-1">
+                      {[i.chatSuggestion1, i.chatSuggestion2, i.chatSuggestion3].map((s) => (
+                        <button key={s} onClick={() => { setChatInput(s); }} className="text-[10px] px-2.5 py-1 rounded-full transition-colors"
+                          style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-text-muted)" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--color-accent)"; e.currentTarget.style.color = "var(--color-text)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--color-border)"; e.currentTarget.style.color = "var(--color-text-muted)"; }}>
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )}
                 {chatMessages.map((msg, idx) => (
                   <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -863,7 +889,9 @@ export default function WorkspacePage() {
                     onChange={(e) => setChatInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleChat(); } }} />
                   <button onClick={handleChat} disabled={!chatInput.trim() || chatLoading}
-                    className="btn-gradient text-xs px-3 rounded-lg disabled:opacity-40 shrink-0">↑</button>
+                    className="btn-gradient text-xs px-3 rounded-lg disabled:opacity-40 shrink-0">
+                    {chatLoading ? <span className="inline-block w-3 h-3 border border-t-transparent rounded-full animate-spin" style={{ borderColor: "currentColor", borderTopColor: "transparent" }} /> : "↑"}
+                  </button>
                 </div>
               </div>
             </>
@@ -877,6 +905,7 @@ export default function WorkspacePage() {
               onDraftChange={setInsightDraft}
               onAdd={handleAddInsight}
               onDelete={handleDeleteInsight}
+              i={i}
             />
           )}
 
@@ -892,9 +921,10 @@ export default function WorkspacePage() {
               onRun={handleRunTodo}
               runningId={runningTodoId}
               onSelectSource={(sourceId) => { setSelectedSourceId(sourceId); setMainTab("source"); }}
+              i={i}
             />
           )}
-        </div>
+        </aside>
       </div>
 
       {/* Confirm delete source dialog */}
@@ -1022,20 +1052,25 @@ function DigestableRoadmap({ markdown, digestedIds, checkedIds, onToggle }: {
 
 // ── InsightPanel ──────────────────────────────────────────────────────────────
 
-function InsightPanel({ insights, draft, onDraftChange, onAdd, onDelete }: {
+function InsightPanel({ insights, draft, onDraftChange, onAdd, onDelete, i }: {
   insights: Insight[];
   draft: string;
   onDraftChange: (v: string) => void;
   onAdd: () => void;
   onDelete: (id: string) => void;
+  i: ReturnType<typeof t>;
 }) {
   return (
     <>
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
         {insights.length === 0 && (
-          <p className="text-xs text-center mt-8" style={{ color: "var(--color-text-muted)", opacity: 0.5 }}>
-            Capture ideas, observations, and insights as you explore.
-          </p>
+          <div className="flex flex-col items-center justify-center h-full gap-2" style={{ color: "var(--color-text-muted)" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.35 }}>
+              <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z" />
+            </svg>
+            <p className="text-xs font-medium">{i.insightsEmptyTitle}</p>
+            <p className="text-[10px] opacity-60 text-center max-w-[200px]">{i.insightsEmptyHint}</p>
+          </div>
         )}
         {[...insights].reverse().map((ins) => (
           <div key={ins.id} className="group rounded-lg px-3 py-2.5 text-xs leading-relaxed relative"
@@ -1070,7 +1105,7 @@ function InsightPanel({ insights, draft, onDraftChange, onAdd, onDelete }: {
 
 // ── ResearchPanel ─────────────────────────────────────────────────────────────
 
-function ResearchPanel({ todos, sources, draft, onDraftChange, onAdd, onDelete, onRun, runningId, onSelectSource }: {
+function ResearchPanel({ todos, sources, draft, onDraftChange, onAdd, onDelete, onRun, runningId, onSelectSource, i }: {
   todos: ResearchTodo[];
   sources: Source[];
   draft: string;
@@ -1080,6 +1115,7 @@ function ResearchPanel({ todos, sources, draft, onDraftChange, onAdd, onDelete, 
   onRun: (id: string) => void;
   runningId: string | null;
   onSelectSource: (id: string) => void;
+  i: ReturnType<typeof t>;
 }) {
   const statusColor = { pending: "var(--color-text-muted)", "in-progress": "var(--color-warning)", done: "var(--color-success)" };
 
@@ -1087,9 +1123,13 @@ function ResearchPanel({ todos, sources, draft, onDraftChange, onAdd, onDelete, 
     <>
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
         {todos.length === 0 && (
-          <p className="text-xs text-center mt-8" style={{ color: "var(--color-text-muted)", opacity: 0.5 }}>
-            Add specific research questions to deep-dive later.
-          </p>
+          <div className="flex flex-col items-center justify-center h-full gap-2" style={{ color: "var(--color-text-muted)" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.35 }}>
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <p className="text-xs font-medium">{i.researchEmptyTitle}</p>
+            <p className="text-[10px] opacity-60 text-center max-w-[200px]">{i.researchEmptyHint}</p>
+          </div>
         )}
         {todos.map((todo) => {
           const resultSource = todo.resultSourceId ? sources.find((s) => s.id === todo.resultSourceId) : null;
@@ -1291,13 +1331,40 @@ function GeneratePrompt({ generating, onGenerate, i, progress }: { generating: b
   );
 }
 
-function EmptyState({ onAdd, i }: { onAdd: () => void; i: ReturnType<typeof t> }) {
+function EmptyState({ onAdd, i, hasSources }: { onAdd: () => void; i: ReturnType<typeof t>; hasSources: boolean }) {
+  if (!hasSources) {
+    // Onboarding: 3-step guide for empty workspace
+    const steps = [
+      { num: "1", label: i.onboardingStep1, icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg> },
+      { num: "2", label: i.onboardingStep2, icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg> },
+      { num: "3", label: i.onboardingStep3, icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg> },
+    ];
+    return (
+      <div className="flex items-center justify-center h-full" style={{ color: "var(--color-text-muted)" }}>
+        <div className="text-center space-y-5 max-w-xs">
+          <p className="text-sm font-medium" style={{ color: "var(--color-text)" }}>{i.onboardingTitle}</p>
+          <div className="space-y-3">
+            {steps.map((s) => (
+              <div key={s.num} className="flex items-center gap-3 text-left rounded-xl px-4 py-3"
+                style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
+                <span className="flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold shrink-0"
+                  style={{ background: "var(--color-accent)", color: "var(--color-bg)" }}>{s.num}</span>
+                <span className="text-xs" style={{ color: "var(--color-text)" }}>{s.label}</span>
+              </div>
+            ))}
+          </div>
+          <button onClick={onAdd} className="btn-gradient px-5 py-2 rounded-lg text-sm font-medium">{i.addSource}</button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex items-center justify-center h-full" style={{ color: "var(--color-text-muted)" }}>
       <div className="text-center space-y-3">
-        <p className="text-lg">{i.noSourcesYet}</p>
-        <p className="text-sm opacity-60">{i.addSourceToStart}</p>
-        <button onClick={onAdd} className="btn-gradient px-5 py-2 rounded-lg text-sm font-medium">{i.addSource}</button>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.3, margin: "0 auto" }}>
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+        </svg>
+        <p className="text-sm opacity-60">{i.readyToGenerate}</p>
       </div>
     </div>
   );

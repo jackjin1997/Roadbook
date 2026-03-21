@@ -5,6 +5,7 @@
 import type { Run, Example } from "langsmith";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { ChatOpenAI } from "@langchain/openai";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { z } from "zod";
 import { setModelConfig } from "../../config.js";
 
@@ -12,6 +13,8 @@ import { setModelConfig } from "../../config.js";
 
 if (process.env.ANTHROPIC_API_KEY) {
   setModelConfig({ provider: "anthropic", modelName: "claude-haiku-4-5-20251001" });
+} else if (process.env.GOOGLE_API_KEY) {
+  setModelConfig({ provider: "gemini", modelName: "gemini-2.5-flash" });
 } else {
   setModelConfig({ provider: "openai", modelName: "gpt-4o-mini" });
 }
@@ -20,7 +23,9 @@ if (process.env.ANTHROPIC_API_KEY) {
 
 export const JUDGE_MODEL = process.env.ANTHROPIC_API_KEY
   ? "anthropic:claude-haiku-4-5-20251001"
-  : "openai:gpt-4o-mini";
+  : process.env.GOOGLE_API_KEY
+    ? "gemini:gemini-2.5-flash"
+    : "openai:gpt-4o-mini";
 
 export function buildJudge() {
   if (process.env.ANTHROPIC_API_KEY) {
@@ -30,6 +35,13 @@ export function buildJudge() {
       ...(process.env.ANTHROPIC_BASE_URL
         ? { anthropicApiUrl: process.env.ANTHROPIC_BASE_URL }
         : {}),
+    });
+  }
+  if (process.env.GOOGLE_API_KEY) {
+    return new ChatGoogleGenerativeAI({
+      model: "gemini-2.5-flash",
+      temperature: 0,
+      apiKey: process.env.GOOGLE_API_KEY,
     });
   }
   return new ChatOpenAI({ modelName: "gpt-4o-mini", temperature: 0 });
