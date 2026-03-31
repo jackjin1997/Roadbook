@@ -26,13 +26,13 @@ import {
 import type { ChatMessage, GenerationProgress } from "../api";
 import type { Workspace, Source, Insight, ResearchTodo } from "../types";
 import { resolveSkillStatus } from "../types";
-import JSZip from "jszip";
 import ResizeHandle from "../components/ResizeHandle";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useToast } from "../contexts/ToastContext";
 import { useTheme } from "../contexts/ThemeContext";
 import { t, LANGUAGES } from "../i18n";
+import { formatDate, downloadMarkdown, downloadObsidianVault, downloadPdf, parseMarkdownSections } from "./workspace-utils";
 
 // Markdown renderer with mermaid diagram support
 const mdComponents = {
@@ -44,91 +44,6 @@ const mdComponents = {
     return <code className={className} {...props}>{children}</code>;
   },
 };
-
-function formatDate(ts: number) {
-  const d = new Date(ts);
-  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
-
-function downloadMarkdown(markdown: string, filename: string) {
-  const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename.replace(/[^a-zA-Z0-9\u4e00-\u9fff_-]/g, "_") + ".md";
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-async function downloadObsidianVault(title: string, markdown: string, skillTree?: import("../types").SkillNode[]) {
-  const zip = new JSZip();
-  const safeName = (s: string) => s.replace(/[/\\:*?"<>|]/g, "_");
-
-  // Main index file
-  zip.file(`${safeName(title)}.md`, markdown);
-
-  // One file per skill node with wikilinks
-  if (skillTree?.length) {
-    for (const node of skillTree) {
-      const lines: string[] = [];
-      lines.push(`# ${node.name}`);
-      lines.push("");
-      lines.push(`**Category:** ${node.category}  `);
-      lines.push(`**Priority:** ${node.priority}`);
-      lines.push("");
-      if (node.description) {
-        lines.push(node.description);
-        lines.push("");
-      }
-      if (node.subSkills.length) {
-        lines.push("## Sub-skills");
-        for (const s of node.subSkills) lines.push(`- ${s}`);
-        lines.push("");
-      }
-      if (node.relatedConcepts.length) {
-        lines.push("## Related");
-        const nodeNames = new Set(skillTree.map((n) => n.name));
-        for (const r of node.relatedConcepts) {
-          lines.push(`- ${nodeNames.has(r) ? `[[${r}]]` : r}`);
-        }
-        lines.push("");
-      }
-      lines.push(`---`);
-      lines.push(`Back to [[${safeName(title)}]]`);
-      zip.file(`${safeName(node.name)}.md`, lines.join("\n"));
-    }
-  }
-
-  const blob = await zip.generateAsync({ type: "blob" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = safeName(title) + "_vault.zip";
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-// Parse markdown into sections by ## and ### headings for digest selection
-function parseMarkdownSections(md: string): { id: string; heading: string; content: string; level: number }[] {
-  const lines = md.split("\n");
-  const sections: { id: string; heading: string; content: string; level: number }[] = [];
-  let current: { heading: string; lines: string[]; level: number } | null = null;
-
-  for (const line of lines) {
-    const h2 = line.startsWith("## ") && !line.startsWith("### ");
-    const h3 = line.startsWith("### ");
-    if (h2 || h3) {
-      if (current) sections.push({ id: current.heading, heading: current.heading, content: current.lines.join("\n").trim(), level: current.level });
-      const level = h3 ? 3 : 2;
-      const heading = line.replace(/^#{2,3}\s+/, "").trim();
-      current = { heading, lines: [line], level };
-    } else {
-      current?.lines.push(line);
-    }
-  }
-  if (current) sections.push({ id: current.heading, heading: current.heading, content: current.lines.join("\n").trim(), level: current.level });
-  return sections;
-}
 
 type MainTab = "source" | "journey";
 type RightTab = "chat" | "insights" | "research";
@@ -643,6 +558,7 @@ export default function WorkspacePage() {
                         badge={<span className="text-[10px] px-2 py-0.5 rounded" style={{ background: "var(--color-surface-hover)", color: "var(--color-text-dim)", border: "1px solid var(--color-border)" }}>{selectedSource.roadmap.skillTree.length} nodes</span>}
                         view={sourceView} onViewChange={setSourceView}
                         onExport={() => downloadMarkdown(selectedSource.roadmap!.markdown, selectedSource.reference || "roadbook")}
+                        onExportPdf={() => downloadPdf(selectedSource.roadmap!.markdown, selectedSource.reference || "roadbook")}
                         onRegenerate={() => handleGenerate(selectedSource.id)}
                         regenerating={generatingId === selectedSource.id}
                       />
@@ -663,6 +579,11 @@ export default function WorkspacePage() {
                             className="text-xs px-2.5 py-1.5 rounded-lg transition-colors"
                             style={toolbarBtnStyle} title="Export as Markdown">
                             .md
+                          </button>
+                          <button onClick={() => downloadPdf(selectedSource.roadmap!.markdown, selectedSource.reference || "roadbook")}
+                            className="text-xs px-2.5 py-1.5 rounded-lg transition-colors"
+                            style={toolbarBtnStyle} title="Export as PDF">
+                            PDF
                           </button>
                           <button onClick={() => handleGenerate(selectedSource.id)} disabled={generatingId === selectedSource.id}
                             className="text-xs px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40"
@@ -718,6 +639,7 @@ export default function WorkspacePage() {
                       })()}
                       view={journeyView} onViewChange={setJourneyView}
                       onExport={() => downloadMarkdown(workspace.roadmap!.markdown, workspace.title || "journey")}
+                      onExportPdf={() => downloadPdf(workspace.roadmap!.markdown, workspace.title || "journey")}
                       onRegenerate={handleGenerateJourney}
                       regenerating={generatingJourney}
                     />
@@ -739,6 +661,11 @@ export default function WorkspacePage() {
                           className="text-xs px-2.5 py-1.5 rounded-lg transition-colors"
                           style={toolbarBtnStyle} title="Export as Markdown">
                           .md
+                        </button>
+                        <button onClick={() => downloadPdf(workspace.roadmap!.markdown, workspace.title || "journey")}
+                          className="text-xs px-2.5 py-1.5 rounded-lg transition-colors"
+                          style={toolbarBtnStyle} title="Export as PDF">
+                          PDF
                         </button>
                         <button onClick={() => downloadObsidianVault(workspace.title || "journey", workspace.roadmap!.markdown, workspace.roadmap!.skillTree)}
                           className="text-xs px-2.5 py-1.5 rounded-lg transition-colors"
@@ -961,12 +888,13 @@ function ViewToggle({ current, onChange }: { current: "prose" | "graph"; onChang
   );
 }
 
-function GraphFloatingToolbar({ title, badge, view, onViewChange, onExport, onRegenerate, regenerating }: {
+function GraphFloatingToolbar({ title, badge, view, onViewChange, onExport, onExportPdf, onRegenerate, regenerating }: {
   title: string;
   badge?: React.ReactNode;
   view: "prose" | "graph";
   onViewChange: (v: "prose" | "graph") => void;
   onExport: () => void;
+  onExportPdf?: () => void;
   onRegenerate: () => void;
   regenerating: boolean;
 }) {
@@ -989,6 +917,11 @@ function GraphFloatingToolbar({ title, badge, view, onViewChange, onExport, onRe
           style={toolbarBtnStyle} title="Export as Markdown">
           .md
         </button>
+        {onExportPdf && <button onClick={onExportPdf}
+          className="text-xs px-2.5 py-1.5 rounded-lg transition-colors"
+          style={toolbarBtnStyle} title="Export as PDF">
+          PDF
+        </button>}
         <button onClick={onRegenerate} disabled={regenerating}
           className="text-xs px-3 py-1.5 rounded-lg disabled:opacity-40 transition-colors"
           style={toolbarBtnStyle}>

@@ -1,4 +1,4 @@
-# Jack TODO — 发布上线 (Vercel + Fly.io)
+# Jack TODO — 发布上线 (Vercel + Fly.io) ✅ DONE
 
 架构: Vercel (前端 SPA + 你的域名) → Fly.io (Express API + SQLite)
 
@@ -12,25 +12,16 @@
 - [x] vercel.json (SPA rewrites)
 - [x] TS 类型修复，build 通过，182 tests 通过
 
-## 部署步骤
+## 部署步骤 (已完成)
 
 ### Vercel (前端)
-- [ ] Vercel import GitHub 仓库
-- [ ] Framework: Vite, Build: `pnpm build`, Output: `dist`
-- [ ] 环境变量: `VITE_API_URL=https://roadbook.fly.dev`
-- [ ] 绑定你的自定义域名
+- [x] Vercel import GitHub 仓库
+- [x] Framework: Vite, Build: `pnpm build`, Output: `dist`
+- [x] 环境变量: `VITE_API_URL=https://roadbook.fly.dev`
+- [x] 绑定你的自定义域名
 
 ### Fly.io (后端)
-- [ ] 买 $25 credits (不绑卡，硬上限)
-- [ ] 创建应用 + Volume:
-  ```
-  fly launch --no-deploy
-  fly volumes create roadbook_data --region nrt --size 1
-  ```
-- [ ] 设置 secrets:
-  ```
-  fly secrets set ANTHROPIC_API_KEY=xxx
-  fly secrets set CORS_ORIGIN=https://你的域名.com,https://roadbook.vercel.app
-  ```
-- [ ] 部署: `fly deploy`
-- [ ] 把 fly 分配的域名 (xxx.fly.dev) 填回 Vercel 的 `VITE_API_URL`
+- [x] 创建应用 + Volume
+- [x] 设置 secrets (ANTHROPIC_API_KEY, CORS_ORIGIN)
+- [x] 部署: `fly deploy`
+- [x] fly 域名已配回 Vercel 的 `VITE_API_URL`

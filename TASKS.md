@@ -119,10 +119,10 @@
 - [ ] Journey 生成同理（多 source 并行提取时显示每个 source 状态）
 
 ### T16 · Roadbook 导出
-- [ ] 导出为 Markdown 文件（`.md` 下载）
-- [ ] 导出为 PDF（服务端 puppeteer 或前端 html2pdf）
-- [ ] 导出为 Obsidian vault（技能节点 → 独立 `.md`，`[[双链]]` 关联）
-- [ ] Journey tab / Source roadmap 右上角加导出按钮
+- [x] 导出为 Markdown 文件（`.md` 下载）
+- [x] 导出为 PDF（前端 html2pdf.js — dynamic import, A4 排版, 标题/代码块样式优化）
+- [x] 导出为 Obsidian vault（技能节点 → 独立 `.md`，`[[双链]]` 关联）
+- [x] Journey tab / Source roadmap 右上角加导出按钮（.md / PDF / Obsidian）
 
 ### T17 · 学习进度追踪
 - [ ] SkillNode 数据模型加 `status: "not_started" | "learning" | "mastered"`
@@ -170,10 +170,10 @@
 
 ### T22 · 综合评估体系完善
 - [x] LangSmith 评估流水线（16 evaluators）
-- [ ] 评估集成到 CI（GitHub Actions + 回归门禁）
-- [ ] Annotation queue 人工评审流程
-- [ ] Pairwise 评估：prompt 版本 A/B 对比
-- [ ] 前端 test coverage 补齐（Workspace.tsx 890 行无测试）
+- [x] 评估集成到 CI（GitHub Actions + 回归门禁）
+- [ ] Annotation queue 人工评审流程（需 LangSmith 平台配置）
+- [ ] Pairwise 评估：prompt 版本 A/B 对比（需 LangSmith 平台配置）
+- [x] 前端 test coverage 补齐（workspace-utils 提取 + 单元测试，vitest jsdom 环境）
 
 ---
 
@@ -232,3 +232,5 @@
 - [x] T23 · MiroFish 风格 UI 全面改造（黑白灰配色 + 点阵底纹 + 等宽品牌字体）
 - [x] T24 · 射箭靶心径向技能图谱（d3.forceRadial + 子技能展开收起 + 权重可视化）
 - [x] T25 · 聊天多语言支持 + SSE 健壮性（language 参数 + try-catch 防崩）
+- [x] T16 · PDF 导出（html2pdf.js dynamic import, Source + Journey 均支持）
+- [x] T22 · 前端测试覆盖（workspace-utils 提取 + vitest jsdom 环境 + 17 个单元测试）
