@@ -1,5 +1,6 @@
 import JSZip from "jszip";
 import { marked } from "marked";
+import DOMPurify from "dompurify";
 import type { SkillNode } from "../types";
 
 export function formatDate(ts: number) {
@@ -73,7 +74,10 @@ export async function downloadPdf(markdown: string, filename: string) {
   const html2pdf = (await import("html2pdf.js")).default;
   const htmlContent = await marked.parse(markdown);
   const container = document.createElement("div");
-  container.innerHTML = htmlContent;
+  // marked does NOT sanitize; LLM-generated markdown can contain raw HTML/script.
+  // DOMPurify returns a sanitized DocumentFragment we append directly — no raw HTML assignment.
+  const fragment = DOMPurify.sanitize(htmlContent, { RETURN_DOM_FRAGMENT: true, USE_PROFILES: { html: true } });
+  container.appendChild(fragment);
   container.style.cssText = "padding:40px;font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:#1a1a1a;line-height:1.7;max-width:700px";
   // Style headings and code blocks for print
   container.querySelectorAll("h1,h2,h3").forEach((el) => {
@@ -100,11 +104,23 @@ export function parseMarkdownSections(md: string): { id: string; heading: string
   const sections: { id: string; heading: string; content: string; level: number }[] = [];
   let current: { heading: string; lines: string[]; level: number } | null = null;
 
+  // Track how many times we've seen each heading text. The first occurrence
+  // keeps its bare heading as id (preserves backward compat with stored
+  // digestedSegmentIds); duplicates get a stable disambiguator suffix.
+  const headingCount = new Map<string, number>();
+
+  function pushCurrent(c: { heading: string; lines: string[]; level: number }) {
+    const seen = headingCount.get(c.heading) ?? 0;
+    headingCount.set(c.heading, seen + 1);
+    const id = seen === 0 ? c.heading : `${c.heading}::${seen + 1}`;
+    sections.push({ id, heading: c.heading, content: c.lines.join("\n").trim(), level: c.level });
+  }
+
   for (const line of lines) {
     const h2 = line.startsWith("## ") && !line.startsWith("### ");
     const h3 = line.startsWith("### ");
     if (h2 || h3) {
-      if (current) sections.push({ id: current.heading, heading: current.heading, content: current.lines.join("\n").trim(), level: current.level });
+      if (current) pushCurrent(current);
       const level = h3 ? 3 : 2;
       const heading = line.replace(/^#{2,3}\s+/, "").trim();
       current = { heading, lines: [line], level };
@@ -112,6 +128,6 @@ export function parseMarkdownSections(md: string): { id: string; heading: string
       current?.lines.push(line);
     }
   }
-  if (current) sections.push({ id: current.heading, heading: current.heading, content: current.lines.join("\n").trim(), level: current.level });
+  if (current) pushCurrent(current);
   return sections;
 }

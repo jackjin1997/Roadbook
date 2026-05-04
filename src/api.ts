@@ -1,11 +1,16 @@
 import type { Workspace, WorkspaceListItem, Source, Roadmap } from "./types";
 
 const API = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:3001" : "");
+const API_KEY = import.meta.env.VITE_ARIADNE_API_KEY;
+
+export function authHeaders(base: HeadersInit = {}): HeadersInit {
+  return API_KEY ? { ...base, Authorization: `Bearer ${API_KEY}` } : base;
+}
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...init,
+    headers: authHeaders({ "Content-Type": "application/json", ...(init?.headers as Record<string, string> | undefined) }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
@@ -49,6 +54,7 @@ export const addFileSource = async (workspaceId: string, file: File, language: s
   form.append("language", language);
   const res = await fetch(`${API}/workspaces/${workspaceId}/sources/file`, {
     method: "POST",
+    headers: authHeaders(),
     body: form,
   });
   if (!res.ok) {
@@ -83,13 +89,15 @@ export function streamChatMessage(
   sourceIds: string[] | undefined,
   onChunk: (chunk: string) => void,
   language?: string,
+  signal?: AbortSignal,
 ): Promise<{ reply: string; roadbookUpdated: boolean; roadmap: import("./types").Roadmap | null }> {
   return new Promise(async (resolve, reject) => {
     try {
       const res = await fetch(`${API}/workspaces/${workspaceId}/chat/stream`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ messages, sourceIds, language }),
+        signal,
       });
       if (!res.ok || !res.body) { reject(new Error(`HTTP ${res.status}`)); return; }
 
@@ -138,13 +146,15 @@ function readGenerationStream(
   url: string,
   body: object,
   onProgress: (event: GenerationProgress) => void,
+  signal?: AbortSignal,
 ): Promise<GenerationResult> {
   return new Promise(async (resolve, reject) => {
     try {
       const res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(body),
+        signal,
       });
       if (!res.ok || !res.body) { reject(new Error(`HTTP ${res.status}`)); return; }
 
@@ -160,10 +170,11 @@ function readGenerationStream(
         buffer = lines.pop()!;
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
-          const data = JSON.parse(line.slice(6));
+          let data: { type?: string; error?: string; stage?: string; progress?: number; detail?: string; roadmap?: Roadmap; workspaceTitle?: string; failedSkills?: string[] };
+          try { data = JSON.parse(line.slice(6)); } catch { continue; }
           if (data.type === "error") { reject(new Error(data.error)); return; }
-          if (data.type === "progress") onProgress({ stage: data.stage, progress: data.progress, detail: data.detail });
-          if (data.type === "done") resolve({ roadmap: data.roadmap, workspaceTitle: data.workspaceTitle, failedSkills: data.failedSkills });
+          if (data.type === "progress") onProgress({ stage: data.stage ?? "", progress: data.progress, detail: data.detail });
+          if (data.type === "done" && data.roadmap && data.workspaceTitle) resolve({ roadmap: data.roadmap, workspaceTitle: data.workspaceTitle, failedSkills: data.failedSkills });
         }
       }
     } catch (e) {
@@ -178,11 +189,13 @@ export function generateRoadmap(
   sourceId: string,
   model?: string,
   onProgress?: (event: GenerationProgress) => void,
+  signal?: AbortSignal,
 ): Promise<GenerationResult> {
   return readGenerationStream(
     `${API}/workspaces/${workspaceId}/sources/${sourceId}/generate`,
     model ? { model } : {},
     onProgress ?? (() => {}),
+    signal,
   );
 }
 
@@ -192,11 +205,13 @@ export function generateJourney(
   sourceIds: string[],
   model?: string,
   onProgress?: (event: GenerationProgress) => void,
+  signal?: AbortSignal,
 ): Promise<GenerationResult> {
   return readGenerationStream(
     `${API}/workspaces/${workspaceId}/generate-journey`,
     { sourceIds, ...(model ? { model } : {}) },
     onProgress ?? (() => {}),
+    signal,
   );
 }
 

@@ -18,8 +18,39 @@ const app = express();
 const PORT = Number(process.env.ARIADNE_PORT) || 3001;
 
 const CORS_ORIGIN = process.env.CORS_ORIGIN;
-app.use(cors(CORS_ORIGIN ? { origin: CORS_ORIGIN.split(",") } : undefined));
+app.use(
+  cors(
+    CORS_ORIGIN
+      ? { origin: CORS_ORIGIN.split(","), credentials: false, allowedHeaders: ["Content-Type", "Authorization"] }
+      : { allowedHeaders: ["Content-Type", "Authorization"] },
+  ),
+);
 app.use(express.json({ limit: "2mb" }));
+
+// ── Auth middleware ──────────────────────────────────────────────────────────
+// Shared-secret Bearer token. Set ARIADNE_API_KEY in production.
+// Unprotected paths: /health, GET /models (static probe), and the SPA static assets.
+// When ARIADNE_API_KEY is unset (local dev, test), the middleware is a no-op.
+
+const API_KEY = process.env.ARIADNE_API_KEY;
+const UNPROTECTED_GET_PATHS = new Set(["/health", "/models"]);
+
+app.use((req, res, next) => {
+  if (!API_KEY) return next();
+  // Allow unauthenticated GET probes
+  if (req.method === "GET" && UNPROTECTED_GET_PATHS.has(req.path)) return next();
+  // Allow SPA static assets in production (served below; method will be GET)
+  if (req.method === "GET" && !req.path.startsWith("/workspaces") && !req.path.startsWith("/skill")) {
+    return next();
+  }
+  const header = req.headers.authorization ?? "";
+  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+  if (token !== API_KEY) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  next();
+});
 
 // Mount skill routes (skill-events, skill-index)
 app.use("/", skillRoutes);

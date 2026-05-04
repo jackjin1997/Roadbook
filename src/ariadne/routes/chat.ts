@@ -3,7 +3,9 @@ import * as store from "../store.js";
 import { ingestSource, retrieve } from "../rag.js";
 import { chatStream, extractRoadbookUpdate, stripRoadbookBlock } from "../chat.js";
 import type { ChatMessage } from "../chat.js";
+import type { Source } from "../types.js";
 import { setupSSE } from "./helpers.js";
+import { withWorkspaceLock } from "./workspace-lock.js";
 
 const router = Router();
 
@@ -23,7 +25,7 @@ router.post("/:id/chat/stream", async (req, res) => {
   const userMessage = messages[messages.length - 1].content;
   const history = messages.slice(0, -1);
 
-  const send = setupSSE(res);
+  const sse = setupSSE(req, res);
 
   try {
     // RAG: lazily ingest sources, then retrieve relevant chunks
@@ -54,30 +56,43 @@ router.post("/:id/chat/stream", async (req, res) => {
       history,
       userMessage,
       language: language || activeSources[0]?.language || "English",
-    })) {
+    }, sse.signal)) {
+      if (sse.closed()) break;
       full += chunk;
-      send({ chunk });
+      sse.send({ chunk });
     }
+
+    if (sse.closed()) return;
 
     const roadbookUpdate = extractRoadbookUpdate(full);
     const reply = roadbookUpdate ? stripRoadbookBlock(full) : full;
 
-    // Apply roadbook update to the first active source that has a roadmap (or the only one)
-    const targetSource = activeSources.length === 1
-      ? activeSources[0]
-      : activeSources.find((s) => s.roadmap) ?? null;
-
-    if (roadbookUpdate && targetSource) {
-      targetSource.roadmap = { id: targetSource.roadmap?.id ?? crypto.randomUUID(), markdown: roadbookUpdate, generatedAt: Date.now() };
-      store.updateWorkspace(workspace);
+    // Apply roadbook update atomically under the workspace lock. Re-read the
+    // workspace so we don't clobber writes that happened during the LLM stream.
+    let committedRoadmap: Source["roadmap"] | null = null;
+    if (roadbookUpdate) {
+      await withWorkspaceLock(req.params.id as string, async () => {
+        const fresh = store.findById(req.params.id as string);
+        if (!fresh) return;
+        const srcIds = new Set(activeSources.map((s) => s.id));
+        const freshActive = fresh.sources.filter((s) => srcIds.has(s.id));
+        const target = freshActive.length === 1
+          ? freshActive[0]
+          : freshActive.find((s) => s.roadmap) ?? null;
+        if (!target) return;
+        target.roadmap = { id: target.roadmap?.id ?? crypto.randomUUID(), markdown: roadbookUpdate, generatedAt: Date.now() };
+        store.updateWorkspace(fresh);
+        committedRoadmap = target.roadmap;
+      });
     }
 
-    send({ done: true, reply, roadbookUpdated: !!roadbookUpdate, roadmap: targetSource?.roadmap ?? null });
+    sse.send({ done: true, reply, roadbookUpdated: !!roadbookUpdate, roadmap: committedRoadmap });
   } catch (err) {
+    if (sse.closed()) return;
     const message = err instanceof Error ? err.message : String(err);
-    send({ error: message });
+    sse.send({ error: message });
   } finally {
-    res.end();
+    if (!res.writableEnded) res.end();
   }
 });
 

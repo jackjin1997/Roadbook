@@ -3,6 +3,7 @@ import { generateRoadbook } from "../workflow.js";
 import * as store from "../store.js";
 import { resolveSkillStatus } from "../store.js";
 import type { Insight, ResearchTodo, Source, SkillStatus, SkillProgressEntry } from "../types.js";
+import { withWorkspaceLock } from "./workspace-lock.js";
 
 const router = Router();
 
@@ -64,36 +65,59 @@ router.delete("/:id/research-todos/:todoId", (req, res) => {
 });
 
 router.post("/:id/research-todos/:todoId/run", async (req, res) => {
-  const workspace = store.findById(req.params.id);
-  if (!workspace) { res.status(404).json({ error: "Not found" }); return; }
-  const todo = workspace.researchTodos.find((t) => t.id === req.params.todoId);
-  if (!todo) { res.status(404).json({ error: "Todo not found" }); return; }
-
-  todo.status = "in-progress";
-  store.updateWorkspace(workspace);
+  if (!store.findById(req.params.id)) { res.status(404).json({ error: "Not found" }); return; }
 
   try {
-    const output = await generateRoadbook(
-      `Research topic: ${todo.topic}\n\n${todo.description ?? ""}`,
-      "Chinese",
-    );
-    const source: Source = {
-      id: crypto.randomUUID(), type: "text", origin: "research",
-      reference: todo.topic,
-      snapshot: `Research: ${todo.topic}\n\n${todo.description ?? ""}`,
-      ingestedAt: Date.now(),
-      language: "Chinese",
-      roadmap: { id: crypto.randomUUID(), markdown: output.markdown, skillTree: output.skillTree, generatedAt: Date.now() },
-      digestedSegmentIds: [],
-    };
-    workspace.sources.push(source);
-    todo.status = "done";
-    todo.resultSourceId = source.id;
-    store.updateWorkspace(workspace);
-    res.json({ todo, source });
+    const result = await withWorkspaceLock(req.params.id, async () => {
+      // Phase 1: mark in-progress (short transaction inside the lock)
+      const workspace = store.findById(req.params.id);
+      if (!workspace) throw new Error("Workspace vanished");
+      const todo = workspace.researchTodos.find((t) => t.id === req.params.todoId);
+      if (!todo) throw new Error("Todo not found");
+
+      todo.status = "in-progress";
+      store.updateWorkspace(workspace);
+
+      try {
+        const output = await generateRoadbook(
+          `Research topic: ${todo.topic}\n\n${todo.description ?? ""}`,
+          "Chinese",
+        );
+        // Re-read the workspace AFTER the long LLM call — another handler
+        // may have mutated other fields concurrently. We still hold the
+        // workspace lock so nobody else is writing right now, but this is
+        // defensive against future parallel-handler chains.
+        const freshWorkspace = store.findById(req.params.id);
+        if (!freshWorkspace) throw new Error("Workspace vanished during generation");
+        const freshTodo = freshWorkspace.researchTodos.find((t) => t.id === req.params.todoId);
+        if (!freshTodo) throw new Error("Todo vanished during generation");
+
+        const source: Source = {
+          id: crypto.randomUUID(), type: "text", origin: "research",
+          reference: freshTodo.topic,
+          snapshot: `Research: ${freshTodo.topic}\n\n${freshTodo.description ?? ""}`,
+          ingestedAt: Date.now(),
+          language: "Chinese",
+          roadmap: { id: crypto.randomUUID(), markdown: output.markdown, skillTree: output.skillTree, generatedAt: Date.now() },
+          digestedSegmentIds: [],
+        };
+        freshWorkspace.sources.push(source);
+        freshTodo.status = "done";
+        freshTodo.resultSourceId = source.id;
+        store.updateWorkspace(freshWorkspace);
+        return { todo: freshTodo, source };
+      } catch (innerErr) {
+        // Roll back status inside the same lock
+        const ws = store.findById(req.params.id);
+        if (ws) {
+          const t = ws.researchTodos.find((t) => t.id === req.params.todoId);
+          if (t) { t.status = "pending"; store.updateWorkspace(ws); }
+        }
+        throw innerErr;
+      }
+    });
+    res.json(result);
   } catch (err) {
-    todo.status = "pending";
-    store.updateWorkspace(workspace);
     const message = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: message });
   }

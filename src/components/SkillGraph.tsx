@@ -325,6 +325,11 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
     }
 
     const svg = d3.select(svgRef.current);
+    // d3.zoom attaches wheel/touch/dblclick listeners to the SVG element
+    // itself, not to its children — so `selectAll("*").remove()` doesn't clean
+    // them up. Without this, every re-render layers another zoom handler and
+    // pan/zoom transforms accumulate (visible as drift after a few renders).
+    svg.on(".zoom", null);
     svg.selectAll("*").remove();
 
     // Background
@@ -663,6 +668,9 @@ export function SkillGraph({ skillTree, skillProgress = {}, onStatusChange, node
         if (n.x != null && n.y != null) posCache.current.set(n.id, { x: n.x, y: n.y });
       }
       simulation.stop();
+      // Detach zoom listeners on unmount too — covers the route-leave case
+      // where the cleanup runs but no new effect re-renders the SVG.
+      svg.on(".zoom", null);
     };
   }, [skillTree, dimensions, expandedIds, categories, handleBackgroundClick, showEdgeLabels, toggleExpand, colors]);
   // Note: skillProgress and onStatusChange accessed via refs to avoid full SVG rebuild

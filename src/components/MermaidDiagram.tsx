@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import mermaid from "mermaid";
+import DOMPurify from "dompurify";
 
 let initialized = false;
 
@@ -61,7 +62,14 @@ export function MermaidDiagram({ code }: { code: string }) {
       .render(id, code)
       .then(({ svg }) => {
         if (!innerRef.current) return;
-        innerRef.current.innerHTML = svg;
+        // Mermaid SVG can embed LLM-generated node labels; sanitize to a DOM
+        // fragment rather than assigning raw HTML. SVG profile keeps the markup.
+        const fragment = DOMPurify.sanitize(svg, {
+          RETURN_DOM_FRAGMENT: true,
+          USE_PROFILES: { svg: true, svgFilters: true },
+        });
+        while (innerRef.current.firstChild) innerRef.current.removeChild(innerRef.current.firstChild);
+        innerRef.current.appendChild(fragment);
         // Make SVG fill the container responsively
         const svgEl = innerRef.current.querySelector("svg");
         if (svgEl) {

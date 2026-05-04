@@ -97,6 +97,13 @@ export async function ingestSource(
   const emb = getEmbeddings();
   const vectors = await emb.embedDocuments(chunks);
 
+  // Provider partial-failure guard: if the embedding API returns fewer vectors
+  // than chunks, silently storing `undefined` produces NaN cosine scores that
+  // poison every later retrieval. Bail loudly instead.
+  if (vectors.length !== chunks.length) {
+    throw new Error(`Embedding count mismatch: expected ${chunks.length}, got ${vectors.length}`);
+  }
+
   const entries: VectorEntry[] = chunks.map((t, i) => ({
     chunk: {
       id: `${sourceRef}::${i}`,

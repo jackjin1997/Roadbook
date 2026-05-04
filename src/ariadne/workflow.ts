@@ -12,18 +12,46 @@ export interface GenerationOutput {
   failedSkills: string[];
 }
 
+export interface GenerationOptions {
+  onProgress?: ProgressCallback;
+  modelOverride?: ModelOverride;
+  signal?: AbortSignal;
+  /** Wall-clock budget for the whole graph invocation. Default 180s. */
+  timeoutMs?: number;
+}
+
+const DEFAULT_WORKFLOW_TIMEOUT_MS = 180_000;
+
+function withTimeoutAndSignal<T>(promise: Promise<T>, signal: AbortSignal | undefined, timeoutMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Workflow timed out after ${timeoutMs}ms`)), timeoutMs);
+    const onAbort = () => { clearTimeout(timer); reject(new Error("Workflow aborted")); };
+    if (signal) {
+      if (signal.aborted) { clearTimeout(timer); reject(new Error("Workflow aborted")); return; }
+      signal.addEventListener("abort", onAbort, { once: true });
+    }
+    promise.then(
+      (v) => { clearTimeout(timer); signal?.removeEventListener("abort", onAbort); resolve(v); },
+      (e) => { clearTimeout(timer); signal?.removeEventListener("abort", onAbort); reject(e); },
+    );
+  });
+}
+
 export async function generateRoadbook(
   input: string,
   language = "English",
-  onProgress?: ProgressCallback,
+  onProgressOrOpts?: ProgressCallback | GenerationOptions,
   modelOverride?: ModelOverride,
 ): Promise<GenerationOutput> {
-  const finalState = await roadbookGraph.invoke({
-    input,
-    language,
-    onProgress,
-    modelOverride,
-  });
+  const opts: GenerationOptions = typeof onProgressOrOpts === "function"
+    ? { onProgress: onProgressOrOpts, modelOverride }
+    : { ...(onProgressOrOpts ?? {}), modelOverride: onProgressOrOpts?.modelOverride ?? modelOverride };
+
+  const invocation = roadbookGraph.invoke(
+    { input, language, onProgress: opts.onProgress, modelOverride: opts.modelOverride },
+    opts.signal ? { signal: opts.signal } : undefined,
+  );
+  const finalState = await withTimeoutAndSignal(invocation, opts.signal, opts.timeoutMs ?? DEFAULT_WORKFLOW_TIMEOUT_MS);
 
   return {
     markdown: finalState.roadbookMarkdown,
@@ -39,17 +67,20 @@ export async function generateRoadbook(
  */
 export async function generateJourneyRoadbook(
   snapshots: { text: string; language: string }[],
-  onProgress?: ProgressCallback,
+  onProgressOrOpts?: ProgressCallback | GenerationOptions,
   modelOverride?: ModelOverride,
 ): Promise<GenerationOutput> {
   if (snapshots.length === 0) throw new Error("No snapshots provided");
 
-  const finalState = await journeyGraph.invoke({
-    snapshots,
-    language: snapshots[0].language,
-    onProgress,
-    modelOverride,
-  });
+  const opts: GenerationOptions = typeof onProgressOrOpts === "function"
+    ? { onProgress: onProgressOrOpts, modelOverride }
+    : { ...(onProgressOrOpts ?? {}), modelOverride: onProgressOrOpts?.modelOverride ?? modelOverride };
+
+  const invocation = journeyGraph.invoke(
+    { snapshots, language: snapshots[0].language, onProgress: opts.onProgress, modelOverride: opts.modelOverride },
+    opts.signal ? { signal: opts.signal } : undefined,
+  );
+  const finalState = await withTimeoutAndSignal(invocation, opts.signal, opts.timeoutMs ?? DEFAULT_WORKFLOW_TIMEOUT_MS);
 
   return {
     markdown: finalState.roadbookMarkdown,

@@ -9,6 +9,8 @@ import { ChatAnthropic } from "@langchain/anthropic";
 import { HumanMessage } from "@langchain/core/messages";
 import { createRequire } from "module";
 import mammoth from "mammoth";
+import dns from "dns/promises";
+import net from "net";
 
 const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
@@ -18,6 +20,60 @@ const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string
 const JINA_TIMEOUT_MS = 30_000;
 const READABILITY_TIMEOUT_MS = 15_000;
 const MIN_CONTENT_LENGTH = 200;
+
+// ── SSRF guard ───────────────────────────────────────────────────────────────
+
+function isPrivateIPv4(ip: string): boolean {
+  const parts = ip.split(".").map(Number);
+  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) return false;
+  const [a, b] = parts;
+  return (
+    a === 10 ||
+    a === 127 ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    a === 0 ||
+    a >= 224
+  );
+}
+
+function isPrivateIPv6(ip: string): boolean {
+  const normalized = ip.toLowerCase();
+  return (
+    normalized === "::1" ||
+    normalized === "::" ||
+    normalized.startsWith("fc") ||
+    normalized.startsWith("fd") ||
+    normalized.startsWith("fe80:") ||
+    normalized.startsWith("::ffff:") // IPv4-mapped — resolve separately
+  );
+}
+
+async function assertPublicUrl(raw: string): Promise<URL> {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error("Invalid URL");
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(`Unsupported URL scheme: ${parsed.protocol}`);
+  }
+  const host = parsed.hostname;
+  // If hostname is an IP literal, check directly
+  const ipVer = net.isIP(host);
+  if (ipVer === 4 && isPrivateIPv4(host)) throw new Error("Refusing to fetch private IP");
+  if (ipVer === 6 && isPrivateIPv6(host)) throw new Error("Refusing to fetch private IP");
+  if (ipVer !== 0) return parsed;
+  // Hostname: resolve and block if any resolved address is private
+  const records = await dns.lookup(host, { all: true }).catch(() => []);
+  for (const r of records) {
+    if (r.family === 4 && isPrivateIPv4(r.address)) throw new Error(`Refusing to fetch private host (${r.address})`);
+    if (r.family === 6 && isPrivateIPv6(r.address)) throw new Error(`Refusing to fetch private host (${r.address})`);
+  }
+  return parsed;
+}
 
 /** Job boards and SPAs that require a headless renderer to extract content */
 const SPA_PATTERNS = [
@@ -33,6 +89,9 @@ const SPA_PATTERNS = [
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 export async function fetchViaJina(url: string): Promise<string> {
+  // Jina Reader itself runs on a public IP, but its `/${url}` path forwards our
+  // target URL — so we still need to gate the target against private networks.
+  await assertPublicUrl(url);
   const res = await fetch(`https://r.jina.ai/${url}`, {
     headers: {
       "Accept": "text/plain",
@@ -47,6 +106,8 @@ export async function fetchViaJina(url: string): Promise<string> {
 }
 
 export async function fetchUrlSnapshot(url: string): Promise<string> {
+  await assertPublicUrl(url);
+
   // Route known SPA / job-board URLs directly through Jina Reader
   if (SPA_PATTERNS.some((p) => p.test(url))) {
     return fetchViaJina(url);
@@ -56,7 +117,12 @@ export async function fetchUrlSnapshot(url: string): Promise<string> {
   const res = await fetch(url, {
     headers: { "User-Agent": "Mozilla/5.0 (compatible; Ariadne/1.0)" },
     signal: AbortSignal.timeout(READABILITY_TIMEOUT_MS),
+    redirect: "manual",
   });
+  // Block redirects — a 3xx Location header could point to an internal host
+  if (res.status >= 300 && res.status < 400) {
+    throw new Error("Refusing to follow redirect (SSRF guard)");
+  }
   if (!res.ok) throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
   const html = await res.text();
   const dom = new JSDOM(html, { url });

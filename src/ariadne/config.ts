@@ -42,24 +42,33 @@ export function getModel(override?: { provider?: string; modelName?: string }): 
   const provider = (override?.provider as ModelProvider) ?? currentConfig.provider;
   const modelName = override?.modelName ?? currentConfig.modelName;
 
+  // Per-call LLM timeout. Graph-level timeout in workflow.ts caps the whole run,
+  // but individual provider calls still need their own ceiling so a hung
+  // connection doesn't eat all 180s of the graph budget.
+  const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS) || 90_000;
+  const LLM_MAX_RETRIES = 2;
+
   switch (provider) {
     case "gemini":
       return new ChatGoogleGenerativeAI({
         model: modelName ?? "gemini-2.5-flash",
         temperature: 0.3,
         apiKey: process.env.GOOGLE_API_KEY,
+        maxRetries: LLM_MAX_RETRIES,
       });
     case "openai":
       return new ChatOpenAI({
         modelName: modelName ?? "gpt-4o",
         temperature: 0.3,
-        timeout: 60000,
+        timeout: LLM_TIMEOUT_MS,
+        maxRetries: LLM_MAX_RETRIES,
       });
     case "anthropic":
       return new ChatAnthropic({
         modelName: modelName ?? "claude-sonnet-4-6",
         temperature: 0.3,
         ...(process.env.ANTHROPIC_BASE_URL ? { anthropicApiUrl: process.env.ANTHROPIC_BASE_URL } : {}),
+        maxRetries: LLM_MAX_RETRIES,
       });
     default:
       throw new Error(`Unknown provider: ${provider}`);

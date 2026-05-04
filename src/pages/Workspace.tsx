@@ -124,16 +124,34 @@ export default function WorkspacePage() {
 
   useEffect(() => {
     if (!id) return;
-    getWorkspace(id).then((ws) => {
-      setWorkspace(ws);
-      setTitleDraft(ws.title);
-      if (ws.sources.length > 0) setSelectedSourceId(ws.sources[0].id);
-    });
-    listModels().then(({ models }) => {
-      setModels(models);
-      if (models.length > 0) setSelectedModel(models.find(m => m === "gemini-3-flash-preview") ?? models[0]);
-    });
-  }, [id]);
+    let cancelled = false;
+    getWorkspace(id)
+      .then((ws) => {
+        if (cancelled) return;
+        setWorkspace(ws);
+        setTitleDraft(ws.title);
+        if (ws.sources.length > 0) setSelectedSourceId(ws.sources[0].id);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        // 404 / network error / auth fail — surface to user and bounce home
+        // instead of leaving a blank spinner. The workspace id in the URL
+        // might be stale (deleted on another device, mistyped in a share link).
+        const msg = err instanceof Error ? err.message : String(err);
+        toast(`Failed to load workspace: ${msg}`, "error");
+        navigate("/", { replace: true });
+      });
+    listModels()
+      .then(({ models }) => {
+        if (cancelled) return;
+        setModels(models);
+        if (models.length > 0) setSelectedModel(models.find(m => m === "gemini-3-flash-preview") ?? models[0]);
+      })
+      .catch(() => {
+        // Models list is non-essential; failing it shouldn't block the UI.
+      });
+    return () => { cancelled = true; };
+  }, [id, navigate, toast]);
 
   useEffect(() => { if (editingTitle) titleInputRef.current?.focus(); }, [editingTitle]);
   useEffect(() => { chatBottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages]);
@@ -258,13 +276,34 @@ export default function WorkspacePage() {
     } finally { setDigesting(false); }
   };
 
+  // Synchronous in-flight flag. React 19 concurrent mode can run two click
+  // handlers before either's setChatLoading(true) commits, so a state-based
+  // guard isn't enough — refs are read/written synchronously and don't batch.
+  const chatInFlight = useRef(false);
+  // Track the live stream so we can abort it on unmount or workspace switch
+  // (otherwise the reader leaks and keeps writing into a dead component).
+  const chatAbortRef = useRef<AbortController | null>(null);
+
+  // Abort any in-flight chat stream on unmount or when the workspace id changes.
+  useEffect(() => {
+    return () => {
+      chatAbortRef.current?.abort();
+      chatAbortRef.current = null;
+      chatInFlight.current = false;
+    };
+  }, [id]);
+
   const handleChat = async () => {
-    if (!workspace || !chatInput.trim() || chatLoading) return;
+    if (!workspace || !chatInput.trim()) return;
+    if (chatInFlight.current) return;
+    chatInFlight.current = true;
     const userMsg: ChatMessage = { role: "user", content: chatInput.trim() };
     const next = [...chatMessages, userMsg];
     setChatMessages([...next, { role: "assistant", content: "" }]);
     setChatInput("");
     setChatLoading(true);
+    const controller = new AbortController();
+    chatAbortRef.current = controller;
     try {
       const activeIds = checkedSourceIds.size > 0
         ? [...checkedSourceIds]
@@ -275,16 +314,22 @@ export default function WorkspacePage() {
           if (last?.role !== "assistant") return msgs;
           return [...msgs.slice(0, -1), { role: "assistant", content: last.content + chunk }];
         });
-      }, language);
+      }, language, controller.signal);
       setChatMessages((msgs) => [...msgs.slice(0, -1), { role: "assistant", content: result.reply }]);
       if (result.roadbookUpdated && result.roadmap && selectedSourceId) {
         setWorkspace((w) => w ? { ...w, sources: w.sources.map((s) => s.id === selectedSourceId ? { ...s, roadmap: result.roadmap } : s) } : w);
       }
-    } catch {
-      toast(i.chatSendFailed, "error");
+    } catch (err) {
+      // Aborts are intentional (unmount / workspace switch) — don't show as error.
+      const aborted = err instanceof Error && (err.name === "AbortError" || err.message.includes("abort"));
+      if (!aborted) toast(i.chatSendFailed, "error");
       // Remove the empty assistant placeholder
       setChatMessages((msgs) => msgs.filter((m) => m.content !== "" || m.role !== "assistant"));
-    } finally { setChatLoading(false); }
+    } finally {
+      setChatLoading(false);
+      chatInFlight.current = false;
+      if (chatAbortRef.current === controller) chatAbortRef.current = null;
+    }
   };
 
   const handleAddInsight = async () => {
