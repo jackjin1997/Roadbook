@@ -163,7 +163,11 @@ describe("retrieve", () => {
     mockEmbedDocuments.mockResolvedValue([[1, 0], [0, 1], [0.5, 0.5]]);
     mockEmbedQuery.mockResolvedValue([1, 0]);
 
-    await ingestSource("test-ws", "src", "a\n\nb\n\nc");
+    // Force exactly 3 chunks aligned with the 3 mocked vectors. Each block
+    // is under CHUNK_SIZE (800) on its own, but their combined length forces
+    // the recursive splitter to flush them as separate chunks at \n\n.
+    const block = (label: string) => `${label}: ${"x".repeat(700)}`;
+    await ingestSource("test-ws", "src", `${block("a")}\n\n${block("b")}\n\n${block("c")}`);
     const results = await retrieve("test-ws", "q", 1);
     expect(results).toHaveLength(1);
   });

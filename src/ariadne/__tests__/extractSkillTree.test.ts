@@ -82,7 +82,10 @@ describe("extractSkillTree", () => {
     await extractSkillTree({ input: "React Developer", inputType: "resume", language: "English" });
 
     const userMsg = mockInvoke.mock.calls[0][0][1].content;
-    expect(userMsg).toContain("Input type: resume");
+    // User input is wrapped in <user_input> XML tags to isolate it from
+    // the system prompt's instruction space (prompt injection mitigation).
+    expect(userMsg).toContain('<user_input type="resume">');
+    expect(userMsg).toContain("</user_input>");
     expect(userMsg).toContain("React Developer");
   });
 
